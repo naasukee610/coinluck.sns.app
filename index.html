@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <title>COIN LUCK SNS管理</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@400;500;700;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div id="app">
+
+  <!-- ===== SIDEBAR (desktop) ===== -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <span class="sidebar-coin">🪙</span>
+      <div>
+        <div class="sidebar-title">COIN LUCK</div>
+        <div class="sidebar-sub">SNS運用管理</div>
+      </div>
+    </div>
+    <nav class="sidebar-nav">
+      <button class="sidebar-btn active" data-page="home">🏠 HOME</button>
+      <button class="sidebar-btn" data-page="status">📋 ステータス</button>
+      <button class="sidebar-btn" data-page="videos">🎬 動画リスト</button>
+      <button class="sidebar-btn" data-page="posts">📱 投稿リスト</button>
+      <button class="sidebar-btn" data-page="links">🔗 リンク集</button>
+    </nav>
+    <button class="sidebar-add-btn" id="sidebar-add-btn">＋ タスク追加</button>
+  </aside>
+
+  <!-- ===== MAIN ===== -->
+  <div class="app-main">
+
+    <!-- HOME -->
+    <div id="page-home" class="page active">
+      <header class="page-header">
+        <div class="logo-area">
+          <span class="header-coin">🪙</span>
+          <div>
+            <h1 class="header-title">COIN LUCK</h1>
+            <p class="header-sub">SNS運用管理</p>
+          </div>
+        </div>
+        <div id="today-date" class="date-area"></div>
+      </header>
+      <div class="page-content" id="home-content"></div>
+    </div>
+
+    <!-- STATUS -->
+    <div id="page-status" class="page">
+      <header class="page-header page-header--simple">
+        <h2>📋 タスクステータス</h2>
+      </header>
+      <div class="filter-bar" id="status-filters"></div>
+      <div class="page-content" id="status-content"></div>
+    </div>
+
+    <!-- VIDEOS -->
+    <div id="page-videos" class="page">
+      <header class="page-header page-header--simple">
+        <h2>🎬 動画リスト</h2>
+        <button class="header-btn" id="add-reel-btn">＋ 月追加</button>
+      </header>
+      <div class="tab-bar" id="video-tabs">
+        <button class="tab-btn active" data-target="reels">月リール</button>
+        <button class="tab-btn" data-target="youtube-jp">YT 日本語</button>
+        <button class="tab-btn" data-target="youtube-en">YT 英語</button>
+      </div>
+      <div class="page-content" id="video-content"></div>
+    </div>
+
+    <!-- POSTS -->
+    <div id="page-posts" class="page">
+      <header class="page-header page-header--simple">
+        <h2>📱 投稿リスト</h2>
+      </header>
+      <div class="page-content" id="posts-content"></div>
+    </div>
+
+    <!-- LINKS -->
+    <div id="page-links" class="page">
+      <header class="page-header page-header--simple">
+        <h2>🔗 リンク・コピペ集</h2>
+        <button class="header-btn" id="add-link-btn">＋ 追加</button>
+      </header>
+      <div class="page-content" id="links-content"></div>
+    </div>
+
+  </div><!-- /.app-main -->
+
+  <!-- ===== BOTTOM NAV (mobile) ===== -->
+  <nav class="bottom-nav">
+    <button class="nav-btn active" data-page="home">
+      <span class="nav-icon">🏠</span>
+      <span class="nav-label">HOME</span>
+    </button>
+    <button class="nav-btn" data-page="status">
+      <span class="nav-icon">📋</span>
+      <span class="nav-label">ステータス</span>
+    </button>
+    <button class="nav-btn nav-add-btn" id="open-add-modal">
+      <span class="nav-add-icon">＋</span>
+    </button>
+    <button class="nav-btn" data-page="videos">
+      <span class="nav-icon">🎬</span>
+      <span class="nav-label">動画</span>
+    </button>
+    <button class="nav-btn" data-page="posts">
+      <span class="nav-icon">📱</span>
+      <span class="nav-label">投稿</span>
+    </button>
+    <button class="nav-btn" data-page="links">
+      <span class="nav-icon">🔗</span>
+      <span class="nav-label">リンク</span>
+    </button>
+  </nav>
+
+  <!-- ===== TASK MODAL ===== -->
+  <div id="task-modal" class="modal is-hidden">
+    <div class="modal-backdrop" id="task-modal-backdrop"></div>
+    <div class="modal-sheet">
+      <div class="modal-handle"></div>
+      <div class="modal-header">
+        <h3 id="modal-title">タスク追加</h3>
+        <button class="modal-close-btn" id="close-task-modal">✕</button>
+      </div>
+      <div class="modal-body">
+        <form id="task-form" autocomplete="off">
+          <input type="hidden" id="task-id">
+          <div class="form-group">
+            <label for="task-title">タイトル <span class="required">*</span></label>
+            <input type="text" id="task-title" placeholder="動画タイトルを入力" required>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="task-store">店舗</label>
+              <select id="task-store"><option value="">未選択</option></select>
+            </div>
+            <div class="form-group">
+              <label for="task-assignee">担当者</label>
+              <select id="task-assignee"><option value="">未選択</option></select>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>プラットフォーム</label>
+            <div class="platform-grid" id="platform-grid"></div>
+          </div>
+          <div class="form-group">
+            <label>ステータス</label>
+            <div class="status-chip-row" id="status-grid"></div>
+          </div>
+          <div class="form-group">
+            <label for="task-notes">メモ</label>
+            <textarea id="task-notes" placeholder="備考・メモを入力" rows="3"></textarea>
+          </div>
+          <div class="form-actions">
+            <button type="button" class="btn-danger is-hidden" id="delete-task-btn">削除</button>
+            <button type="submit" class="btn-primary">保存</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== LINK MODAL ===== -->
+  <div id="link-modal" class="modal is-hidden">
+    <div class="modal-backdrop" id="link-modal-backdrop"></div>
+    <div class="modal-sheet">
+      <div class="modal-handle"></div>
+      <div class="modal-header">
+        <h3 id="link-modal-title">リンク追加</h3>
+        <button class="modal-close-btn" id="close-link-modal">✕</button>
+      </div>
+      <div class="modal-body">
+        <form id="link-form" autocomplete="off">
+          <input type="hidden" id="link-id">
+          <div class="form-group">
+            <label for="link-category">カテゴリ</label>
+            <input type="text" id="link-category" placeholder="例：TikTok、Instagram" list="category-datalist">
+            <datalist id="category-datalist"></datalist>
+          </div>
+          <div class="form-group">
+            <label for="link-label">ラベル <span class="required">*</span></label>
+            <input type="text" id="link-label" placeholder="リンクの名前" required>
+          </div>
+          <div class="form-group">
+            <label for="link-content">内容 <span class="required">*</span></label>
+            <textarea id="link-content" placeholder="URLやコピーするテキストを入力" rows="4" required></textarea>
+          </div>
+          <div class="form-group">
+            <label>種類</label>
+            <div class="radio-row">
+              <label class="radio-label"><input type="radio" name="link-type" value="link" checked> 🔗 リンク</label>
+              <label class="radio-label"><input type="radio" name="link-type" value="text"> 📝 テキスト</label>
+            </div>
+          </div>
+          <div class="form-actions">
+            <button type="button" class="btn-danger is-hidden" id="delete-link-btn">削除</button>
+            <button type="submit" class="btn-primary">保存</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== REEL MODAL ===== -->
+  <div id="reel-modal" class="modal is-hidden">
+    <div class="modal-backdrop" id="reel-modal-backdrop"></div>
+    <div class="modal-sheet">
+      <div class="modal-handle"></div>
+      <div class="modal-header">
+        <h3 id="reel-modal-title">月リール追加</h3>
+        <button class="modal-close-btn" id="close-reel-modal">✕</button>
+      </div>
+      <div class="modal-body">
+        <form id="reel-form" autocomplete="off">
+          <input type="hidden" id="reel-mode">
+          <input type="hidden" id="reel-group-id">
+          <input type="hidden" id="reel-video-id">
+
+          <!-- Month fields (add mode only) -->
+          <div id="reel-month-section">
+            <div class="form-row">
+              <div class="form-group">
+                <label for="reel-prod-month">制作月 <span class="required">*</span></label>
+                <input type="text" id="reel-prod-month" placeholder="例: 8月">
+              </div>
+              <div class="form-group">
+                <label for="reel-post-month">投稿月 <span class="required">*</span></label>
+                <input type="text" id="reel-post-month" placeholder="例: 9月">
+              </div>
+            </div>
+          </div>
+
+          <!-- Video 1 -->
+          <div class="form-group">
+            <label for="reel-title-1" id="reel-label-1">リール① タイトル</label>
+            <input type="text" id="reel-title-1" placeholder="動画タイトルを入力">
+          </div>
+          <div class="form-group">
+            <label for="reel-note-1">メモ（任意）</label>
+            <input type="text" id="reel-note-1" placeholder="備考・注意事項">
+          </div>
+
+          <!-- Video 2 (add mode only) -->
+          <div id="reel-video2-section">
+            <div class="section-divider">リール②（任意）</div>
+            <div class="form-group">
+              <label for="reel-title-2">リール② タイトル</label>
+              <input type="text" id="reel-title-2" placeholder="動画タイトルを入力">
+            </div>
+            <div class="form-group">
+              <label for="reel-note-2">メモ（任意）</label>
+              <input type="text" id="reel-note-2" placeholder="備考・注意事項">
+            </div>
+          </div>
+
+          <!-- Task auto-generation (add mode only) -->
+          <div class="form-group" id="reel-task-gen-section">
+            <label class="checkbox-label">
+              <input type="checkbox" id="reel-gen-tasks" checked>
+              6店舗分のタスクを自動生成（撮影中）
+            </label>
+            <div class="form-hint">仙台①〇〇・岐阜①〇〇・… 計最大12タスクを作成</div>
+          </div>
+
+          <div class="form-actions">
+            <button type="button" class="btn-danger is-hidden" id="delete-reel-btn">削除</button>
+            <button type="submit" class="btn-primary" id="reel-submit-btn">追加</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== TOAST ===== -->
+  <div id="toast" class="toast is-hidden"></div>
+
+</div>
+<script src="js/app.js"></script>
+</body>
+</html>

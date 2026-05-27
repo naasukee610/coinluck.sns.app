@@ -1,0 +1,28 @@
+{
+  "_comment": "COIN LUCK SNS運用管理 - 設定データ（app.jsに埋め込み済み、参照用）",
+  "statuses": ["撮影中", "ゆっきー", "せい", "ともちん", "投稿", "広告", "完了"],
+  "team": [
+    { "id": "tomochin", "name": "ともちん", "role": "リーダー" },
+    { "id": "yukkie",   "name": "ゆっきー",  "role": "PM" },
+    { "id": "seisei",   "name": "せいせい",  "role": "クリエイター" }
+  ],
+  "stores": ["仙台", "岐阜", "札幌", "広島", "東京", "福岡"],
+  "postingRules": {
+    "tiktok_jp":    { "name": "TikTok（日本語）",   "days": "金・土・祝前日",        "limit": "1日1本" },
+    "instagram_jp": { "name": "Instagram（日本語）", "days": "金（土もOK）",          "limit": "1店舗1日1本" },
+    "youtube_jp":   { "name": "YouTube（日本語）",   "days": "月・火・日＋TikTok更新日", "limit": "1日1本" },
+    "instagram_en": { "name": "英語Instagram",       "days": "基本土曜",              "limit": "編集完了次第" },
+    "tiktok_en":    { "name": "英語TikTok",           "days": "基本土曜",              "limit": "編集完了次第" },
+    "youtube_en":   { "name": "英語YouTube",          "days": "月・火・土・日 10:00",  "limit": "スケジュール済み" }
+  },
+  "monthlyReels": [
+    { "productionMonth": "4月", "postMonth": "5月",
+      "videos": [{ "title": "GWスポット", "note": "GW前に投稿" }, { "title": "カスタムリング" }] },
+    { "productionMonth": "5月", "postMonth": "6月",
+      "videos": [{ "title": "流行ってる" }, { "title": "やりたいことリスト" }] },
+    { "productionMonth": "6月", "postMonth": "7月",
+      "videos": [{ "title": "夏リング作り" }, { "title": "おしゃれ好き" }] },
+    { "productionMonth": "7月", "postMonth": "8月",
+      "videos": [{ "title": "自分で作る" }, { "title": "サマーvlog" }] }
+  ]
+}
