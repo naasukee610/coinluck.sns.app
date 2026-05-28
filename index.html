@@ -25,8 +25,9 @@
     <nav class="sidebar-nav">
       <button class="sidebar-btn active" data-page="home">🏠 HOME</button>
       <button class="sidebar-btn" data-page="status">📋 ステータス</button>
-      <button class="sidebar-btn" data-page="videos">🎬 動画リスト</button>
       <button class="sidebar-btn" data-page="posts">📱 投稿リスト</button>
+      <button class="sidebar-btn" data-page="videos">🎬 動画リスト</button>
+      <button class="sidebar-btn" data-page="notes">📓 ノート</button>
       <button class="sidebar-btn" data-page="links">🔗 リンク集</button>
     </nav>
     <button class="sidebar-add-btn" id="sidebar-add-btn">＋ タスク追加</button>
@@ -59,26 +60,34 @@
       <div class="page-content" id="status-content"></div>
     </div>
 
-    <!-- VIDEOS -->
-    <div id="page-videos" class="page">
-      <header class="page-header page-header--simple">
-        <h2>🎬 動画リスト</h2>
-        <button class="header-btn" id="add-reel-btn">＋ 月追加</button>
-      </header>
-      <div class="tab-bar" id="video-tabs">
-        <button class="tab-btn active" data-target="reels">月リール</button>
-        <button class="tab-btn" data-target="youtube-jp">YT 日本語</button>
-        <button class="tab-btn" data-target="youtube-en">YT 英語</button>
-      </div>
-      <div class="page-content" id="video-content"></div>
-    </div>
-
     <!-- POSTS -->
     <div id="page-posts" class="page">
       <header class="page-header page-header--simple">
         <h2>📱 投稿リスト</h2>
       </header>
       <div class="page-content" id="posts-content"></div>
+    </div>
+
+    <!-- VIDEOS -->
+    <div id="page-videos" class="page">
+      <header class="page-header page-header--simple">
+        <h2>🎬 動画リスト</h2>
+      </header>
+      <div class="tab-bar" id="video-tabs">
+        <button class="tab-btn active" data-target="reels">月リール</button>
+        <button class="tab-btn" data-target="ec">ECリール</button>
+        <button class="tab-btn" data-target="personal">個人リール</button>
+      </div>
+      <div class="page-content" id="video-content"></div>
+    </div>
+
+    <!-- NOTES -->
+    <div id="page-notes" class="page">
+      <header class="page-header page-header--simple">
+        <h2>📓 ノート</h2>
+        <button class="header-btn" id="add-note-btn">＋ 追加</button>
+      </header>
+      <div class="page-content" id="notes-content"></div>
     </div>
 
     <!-- LINKS -->
@@ -93,6 +102,7 @@
   </div><!-- /.app-main -->
 
   <!-- ===== BOTTOM NAV (mobile) ===== -->
+  <!-- Order: HOME | ステータス | 投稿 | ＋ | 動画 | ノート | リンク -->
   <nav class="bottom-nav">
     <button class="nav-btn active" data-page="home">
       <span class="nav-icon">🏠</span>
@@ -102,6 +112,10 @@
       <span class="nav-icon">📋</span>
       <span class="nav-label">ステータス</span>
     </button>
+    <button class="nav-btn" data-page="posts">
+      <span class="nav-icon">📱</span>
+      <span class="nav-label">投稿</span>
+    </button>
     <button class="nav-btn nav-add-btn" id="open-add-modal">
       <span class="nav-add-icon">＋</span>
     </button>
@@ -109,9 +123,9 @@
       <span class="nav-icon">🎬</span>
       <span class="nav-label">動画</span>
     </button>
-    <button class="nav-btn" data-page="posts">
-      <span class="nav-icon">📱</span>
-      <span class="nav-label">投稿</span>
+    <button class="nav-btn" data-page="notes">
+      <span class="nav-icon">📓</span>
+      <span class="nav-label">ノート</span>
     </button>
     <button class="nav-btn" data-page="links">
       <span class="nav-icon">🔗</span>
@@ -132,35 +146,30 @@
         <form id="task-form" autocomplete="off">
           <input type="hidden" id="task-id">
           <div class="form-group">
-            <label for="task-title">タイトル <span class="required">*</span></label>
-            <input type="text" id="task-title" placeholder="動画タイトルを入力" required>
-          </div>
-          <div class="form-row">
-            <div class="form-group">
-              <label for="task-store">店舗</label>
-              <select id="task-store"><option value="">未選択</option></select>
-            </div>
-            <div class="form-group">
-              <label for="task-assignee">担当者</label>
-              <select id="task-assignee"><option value="">未選択</option></select>
-            </div>
+            <label for="task-title">タスク名 <span class="required">*</span></label>
+            <input type="text" id="task-title" placeholder="タスクを入力" required>
           </div>
           <div class="form-group">
-            <label>プラットフォーム</label>
+            <label for="task-store">店舗</label>
+            <select id="task-store"><option value="">未選択</option></select>
+          </div>
+          <div class="form-group">
+            <label>SNS</label>
             <div class="platform-grid" id="platform-grid"></div>
           </div>
           <div class="form-group">
-            <label>ステータス</label>
+            <label>ステータス <span class="required">*</span></label>
             <div class="status-chip-row" id="status-grid"></div>
           </div>
           <div class="form-group">
-            <label for="task-notes">メモ</label>
-            <textarea id="task-notes" placeholder="備考・メモを入力" rows="3"></textarea>
+            <label for="task-notes">メモ（任意）</label>
+            <textarea id="task-notes" placeholder="メモを入力" rows="2"></textarea>
           </div>
           <div class="form-actions">
             <button type="button" class="btn-danger is-hidden" id="delete-task-btn">削除</button>
             <button type="submit" class="btn-primary">保存</button>
           </div>
+          <div id="task-updated-info" class="task-updated-modal is-hidden"></div>
         </form>
       </div>
     </div>
@@ -219,38 +228,55 @@
       <div class="modal-body">
         <form id="reel-form" autocomplete="off">
           <input type="hidden" id="reel-mode">
+          <input type="hidden" id="reel-type">
           <input type="hidden" id="reel-group-id">
           <input type="hidden" id="reel-video-id">
 
-          <!-- Month fields (add mode only) -->
           <div id="reel-month-section">
-            <div class="form-row">
+            <div class="form-row" id="reel-month-row">
               <div class="form-group">
                 <label for="reel-prod-month">制作月 <span class="required">*</span></label>
-                <input type="text" id="reel-prod-month" placeholder="例: 8月">
+                <select id="reel-prod-month">
+                  <option value="">選択してください</option>
+                  <option value="1月">1月</option>
+                  <option value="2月">2月</option>
+                  <option value="3月">3月</option>
+                  <option value="4月">4月</option>
+                  <option value="5月">5月</option>
+                  <option value="6月">6月</option>
+                  <option value="7月">7月</option>
+                  <option value="8月">8月</option>
+                  <option value="9月">9月</option>
+                  <option value="10月">10月</option>
+                  <option value="11月">11月</option>
+                  <option value="12月">12月</option>
+                </select>
               </div>
-              <div class="form-group">
-                <label for="reel-post-month">投稿月 <span class="required">*</span></label>
-                <input type="text" id="reel-post-month" placeholder="例: 9月">
+              <div class="form-group" id="reel-post-month-group">
+                <label for="reel-post-month">投稿月（自動）</label>
+                <input type="text" id="reel-post-month" placeholder="制作月選択で自動入力" readonly>
               </div>
+            </div>
+            <div id="reel-ec-note" class="form-hint is-hidden">タスクは「EC店」として自動生成されます</div>
+            <div id="reel-personal-store-section" class="form-group is-hidden" style="margin-top:8px">
+              <label>店舗選択（タスク生成）</label>
+              <div id="store-check-grid" class="store-check-grid"></div>
             </div>
           </div>
 
-          <!-- Video 1 -->
           <div class="form-group">
-            <label for="reel-title-1" id="reel-label-1">リール① タイトル</label>
-            <input type="text" id="reel-title-1" placeholder="動画タイトルを入力">
+            <label for="reel-title-1" id="reel-label-1">リール① タイトル <span class="required">*</span></label>
+            <input type="text" id="reel-title-1" placeholder="動画タイトルを入力" required>
           </div>
           <div class="form-group">
             <label for="reel-note-1">メモ（任意）</label>
             <input type="text" id="reel-note-1" placeholder="備考・注意事項">
           </div>
 
-          <!-- Video 2 (add mode only) -->
           <div id="reel-video2-section">
-            <div class="section-divider">リール②（任意）</div>
+            <div class="section-divider">リール② <span class="required">*</span></div>
             <div class="form-group">
-              <label for="reel-title-2">リール② タイトル</label>
+              <label for="reel-title-2">リール② タイトル <span class="required">*</span></label>
               <input type="text" id="reel-title-2" placeholder="動画タイトルを入力">
             </div>
             <div class="form-group">
@@ -259,7 +285,6 @@
             </div>
           </div>
 
-          <!-- Task auto-generation (add mode only) -->
           <div class="form-group" id="reel-task-gen-section">
             <label class="checkbox-label">
               <input type="checkbox" id="reel-gen-tasks" checked>
@@ -271,6 +296,62 @@
           <div class="form-actions">
             <button type="button" class="btn-danger is-hidden" id="delete-reel-btn">削除</button>
             <button type="submit" class="btn-primary" id="reel-submit-btn">追加</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== NOTE MODAL ===== -->
+  <div id="note-modal" class="modal is-hidden">
+    <div class="modal-backdrop" id="note-modal-backdrop"></div>
+    <div class="modal-sheet">
+      <div class="modal-handle"></div>
+      <div class="modal-header">
+        <h3 id="note-modal-title">ノート追加</h3>
+        <button class="modal-close-btn" id="close-note-modal">✕</button>
+      </div>
+      <div class="modal-body">
+        <form id="note-form" autocomplete="off">
+          <input type="hidden" id="note-id">
+          <div class="form-group">
+            <label for="note-content">内容 <span class="required">*</span></label>
+            <textarea id="note-content" placeholder="メモ・ルールなどを入力" rows="7" required></textarea>
+          </div>
+          <div class="form-group">
+            <label class="checkbox-label">
+              <input type="checkbox" id="note-pinned">
+              📌 ピン留め（上部に固定）
+            </label>
+          </div>
+          <div class="form-actions">
+            <button type="button" class="btn-danger is-hidden" id="delete-note-btn">削除</button>
+            <button type="submit" class="btn-primary">保存</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== ANNOUNCE MODAL ===== -->
+  <div id="announce-modal" class="modal is-hidden">
+    <div class="modal-backdrop" id="announce-modal-backdrop"></div>
+    <div class="modal-sheet">
+      <div class="modal-handle"></div>
+      <div class="modal-header">
+        <h3 id="announce-modal-title">お知らせ追加</h3>
+        <button class="modal-close-btn" id="close-announce-modal">✕</button>
+      </div>
+      <div class="modal-body">
+        <form id="announce-form" autocomplete="off">
+          <input type="hidden" id="announce-id">
+          <div class="form-group">
+            <label for="announce-text">内容 <span class="required">*</span></label>
+            <textarea id="announce-text" placeholder="お知らせ内容を入力" rows="4" required></textarea>
+          </div>
+          <div class="form-actions">
+            <button type="button" class="btn-danger is-hidden" id="delete-announce-btn">削除</button>
+            <button type="submit" class="btn-primary">保存</button>
           </div>
         </form>
       </div>

@@ -6,27 +6,29 @@
 // CONFIG
 // =============================================
 
-const STATUSES = ['撮影中', 'ゆっきー', 'せい', 'ともちん', '投稿', '広告', '完了'];
+const STATUSES = ['撮影中', '編集', 'サムネ', '音源', 'チェック', 'その他', '投稿', '広告', '完了'];
 
 const STATUS_STYLE = {
-  '撮影中':   { bg: '#F2EFEC', text: '#7A7068', border: '#C8C0B8' },
-  'ゆっきー': { bg: '#EAF0FA', text: '#3A5E8F', border: '#AABFDC' },
-  'せい':     { bg: '#EDE6F5', text: '#6B4E94', border: '#C4B0DC' },
-  'ともちん': { bg: '#F8EBDA', text: '#C97A3A', border: '#E2BF96' },
-  '投稿':     { bg: '#E8F2E8', text: '#2E7040', border: '#98C898' },
-  '広告':     { bg: '#F5E8E8', text: '#A84040', border: '#DCA8A8' },
-  '完了':     { bg: '#E6EFF0', text: '#2B6B72', border: '#90BFC4' },
+  '撮影中': { bg: '#F2EFEC', text: '#7A7068', border: '#C8C0B8' },
+  '編集':   { bg: '#EBF0F8', text: '#3A5A8A', border: '#A8C0D8' },
+  'サムネ': { bg: '#F5EDDF', text: '#8A6030', border: '#D4B080' },
+  '音源':   { bg: '#E4F0EC', text: '#2A6B58', border: '#8ABFB0' },
+  'チェック':{ bg: '#F5E8EE', text: '#904060', border: '#D8A8BC' },
+  'その他': { bg: '#EDECEA', text: '#6A6460', border: '#C4C0BC' },
+  '投稿':   { bg: '#EAE6E2', text: '#6B6159', border: '#BCB4AC' },
+  '広告':   { bg: '#F2EFEC', text: '#7A7068', border: '#C8C0B8' },
+  '完了':   { bg: '#EAE6E2', text: '#6B6159', border: '#BCB4AC' },
 };
 
 const STORES = ['仙台', '岐阜', '札幌', '広島', '東京', '福岡'];
 
 const PLATFORMS = [
-  { id: 'tiktok_jp',    name: 'TikTok JP',    icon: '🎵' },
-  { id: 'instagram_jp', name: 'Instagram JP', icon: '📸' },
-  { id: 'youtube_jp',   name: 'YouTube JP',   icon: '▶️' },
-  { id: 'instagram_en', name: 'Instagram EN', icon: '🌏📸' },
-  { id: 'tiktok_en',    name: 'TikTok EN',    icon: '🌏🎵' },
-  { id: 'youtube_en',   name: 'YouTube EN',   icon: '🌏▶️' },
+  { id: 'tiktok_jp',    name: 'TikTok' },
+  { id: 'instagram_jp', name: 'Instagram' },
+  { id: 'youtube_jp',   name: 'YouTube' },
+  { id: 'tiktok_en',    name: '英TikTok' },
+  { id: 'instagram_en', name: '英Instagram' },
+  { id: 'youtube_en',   name: '英YouTube' },
 ];
 
 const TEAM = [
@@ -132,15 +134,22 @@ const DAY_NAMES = ['日', '月', '火', '水', '木', '金', '土'];
 // =============================================
 
 const state = {
-  tasks:         [],
-  links:         [],
-  reels:         [],
-  activeTab:     'home',
-  statusFilter:  'all',
-  videoSubTab:   'reels',
-  editingTaskId: null,
-  editingLinkId: null,
+  tasks:            [],
+  links:            [],
+  reels:            [],
+  notes:            [],
+  announcements:    [],
+  activeTab:        'home',
+  statusFilter:     '撮影中',
+  videoSubTab:      'reels',
+  editingTaskId:    null,
+  editingLinkId:    null,
+  editingNoteId:    null,
+  editingAnnounceId: null,
 };
+
+// drag state shared between desktop and touch handlers
+const dragState = { taskId: null, fromStatus: null };
 
 // =============================================
 // STORAGE
@@ -149,9 +158,25 @@ const state = {
 function initReels() {
   return MONTHLY_REELS.map(m => ({
     id: uid(),
+    year: 2026,
+    type: 'monthly',
     productionMonth: m.productionMonth,
     postMonth: m.postMonth,
     videos: m.videos.map(v => ({ id: uid(), title: v.title, note: v.note || '' })),
+  }));
+}
+
+function monthToNum(str) {
+  return parseInt(str) || 0; // "4月" → 4, "12月" → 12
+}
+
+function initNotes() {
+  return Object.entries(POSTING_RULES).map(([, rule], i) => ({
+    id: uid(),
+    content: `${rule.icon} ${rule.name}\n${rule.rules.map(r => `・${r}`).join('\n')}`,
+    pinned: false,
+    order: i,
+    createdAt: new Date().toISOString(),
   }));
 }
 
@@ -160,23 +185,31 @@ function loadState() {
     const raw = localStorage.getItem('coinluck_v1');
     if (raw) {
       const saved = JSON.parse(raw);
-      state.tasks = saved.tasks || [];
-      state.links = saved.links || [];
-      state.reels = saved.reels && saved.reels.length ? saved.reels : initReels();
+      state.tasks         = saved.tasks  || [];
+      state.links         = saved.links  || [];
+      state.reels         = saved.reels  && saved.reels.length
+        ? saved.reels.map(r => ({ year: 2026, type: 'monthly', ...r }))
+        : initReels();
+      state.notes         = saved.notes  && saved.notes.length  ? saved.notes  : initNotes();
+      state.announcements = saved.announcements || [];
     } else {
       state.reels = initReels();
+      state.notes = initNotes();
     }
   } catch (_) {
     state.reels = initReels();
+    state.notes = initNotes();
   }
 }
 
 function saveState() {
   try {
     localStorage.setItem('coinluck_v1', JSON.stringify({
-      tasks: state.tasks,
-      links: state.links,
-      reels: state.reels,
+      tasks:         state.tasks,
+      links:         state.links,
+      reels:         state.reels,
+      notes:         state.notes,
+      announcements: state.announcements,
     }));
   } catch (_) {}
 }
@@ -211,7 +244,7 @@ function getNextStatus(current) {
 
 function platformLabel(id) {
   const p = PLATFORMS.find(x => x.id === id);
-  return p ? `${p.icon} ${p.name}` : id;
+  return p ? p.name : id;
 }
 
 function statusBadge(status) {
@@ -219,11 +252,25 @@ function statusBadge(status) {
   return `<span class="status-badge" style="background:${s.bg};color:${s.text};border:1.5px solid ${s.border};">${esc(status)}</span>`;
 }
 
-function showToast(msg) {
+function showToast(msg, undoFn) {
   const el = document.getElementById('toast');
-  el.textContent = msg;
-  el.classList.remove('is-hidden');
   clearTimeout(el._t);
+  el.innerHTML = '';
+  const msgSpan = document.createElement('span');
+  msgSpan.textContent = msg;
+  el.appendChild(msgSpan);
+  if (undoFn) {
+    const btn = document.createElement('button');
+    btn.className = 'toast-undo-btn';
+    btn.textContent = '元に戻す';
+    btn.onclick = () => {
+      el.classList.add('is-hidden');
+      clearTimeout(el._t);
+      undoFn();
+    };
+    el.appendChild(btn);
+  }
+  el.classList.remove('is-hidden');
   el._t = setTimeout(() => el.classList.add('is-hidden'), 2200);
 }
 
@@ -258,7 +305,7 @@ function navigate(tab) {
 
   state.activeTab = tab;
   ({ home: renderHome, status: renderStatus, videos: renderVideos,
-     posts: renderPosts, links: renderLinks })[tab]?.();
+     posts: renderPosts, notes: renderNotes, links: renderLinks })[tab]?.();
 }
 
 // Exposed to inline onclick
@@ -313,16 +360,15 @@ function renderHome() {
             </div>`;
   }).join('');
 
-  const rulesHTML = Object.entries(POSTING_RULES).map(([id, rule]) => `
-    <div class="rules-row">
-      <div class="rules-row-header" onclick="toggleRule('${id}')">
-        <span>${rule.icon} ${rule.name}</span>
-        <span class="rules-chevron" id="rchev-${id}">▼</span>
-      </div>
-      <div class="rules-body is-hidden" id="rbody-${id}">
-        ${rule.rules.map(r => `<div class="rule-item">・${esc(r)}</div>`).join('')}
-      </div>
-    </div>`).join('');
+  const announceItems = state.announcements.length
+    ? state.announcements.map(a => `
+        <div class="announce-item">
+          <span class="announce-bullet">📢</span>
+          <div class="announce-text">${esc(a.text)}</div>
+          <button class="announce-del-btn"
+            onclick="deleteAnnouncement('${a.id}');event.stopPropagation()" title="削除">✕</button>
+        </div>`).join('')
+    : `<div class="announce-empty">お知らせはありません</div>`;
 
   document.getElementById('home-content').innerHTML = `
     <div class="card" id="home-schedule-card">
@@ -333,18 +379,57 @@ function renderHome() {
       <div class="card-title">📊 タスク進捗（タップで絞り込み）</div>
       <div class="pipeline-grid">${pipelineHTML}</div>
     </div>
-    <div class="card" id="home-rules-card">
-      <div class="card-title">📋 投稿ルール参照</div>
-      ${rulesHTML}
+    <div class="card" id="home-announce-card">
+      <div class="announce-header">
+        <div class="card-title" style="margin-bottom:0">📢 お知らせ</div>
+        <button class="announce-add-btn" onclick="openAddAnnouncement()">＋ 追加</button>
+      </div>
+      ${announceItems}
     </div>`;
 }
 
-function toggleRule(id) {
-  const body  = document.getElementById(`rbody-${id}`);
-  const chev  = document.getElementById(`rchev-${id}`);
-  if (!body) return;
-  body.classList.toggle('is-hidden');
-  chev.textContent = body.classList.contains('is-hidden') ? '▼' : '▲';
+// =============================================
+// ANNOUNCEMENTS
+// =============================================
+
+function openAddAnnouncement() {
+  state.editingAnnounceId = null;
+  document.getElementById('announce-modal-title').textContent = 'お知らせ追加';
+  document.getElementById('announce-id').value   = '';
+  document.getElementById('announce-text').value = '';
+  document.getElementById('delete-announce-btn').classList.add('is-hidden');
+  document.getElementById('announce-modal').classList.remove('is-hidden');
+  setTimeout(() => document.getElementById('announce-text').focus(), 100);
+}
+
+function closeAnnounceModal() {
+  document.getElementById('announce-modal').classList.add('is-hidden');
+  state.editingAnnounceId = null;
+}
+
+function onSaveAnnouncement(e) {
+  e.preventDefault();
+  const text = document.getElementById('announce-text').value.trim();
+  if (!text) return;
+  if (state.editingAnnounceId) {
+    const a = state.announcements.find(x => x.id === state.editingAnnounceId);
+    if (a) a.text = text;
+    showToast('お知らせを更新しました');
+  } else {
+    state.announcements.unshift({ id: uid(), text, createdAt: new Date().toISOString() });
+    showToast('お知らせを追加しました');
+  }
+  saveState();
+  closeAnnounceModal();
+  if (state.activeTab === 'home') renderHome();
+}
+
+function deleteAnnouncement(id) {
+  if (!confirm('このお知らせを削除しますか？')) return;
+  state.announcements = state.announcements.filter(a => a.id !== id);
+  saveState();
+  renderHome();
+  showToast('お知らせを削除しました');
 }
 
 // =============================================
@@ -354,20 +439,17 @@ function toggleRule(id) {
 function renderStatus() {
   renderStatusFilters();
   renderTaskCards();
+  setupTaskDrag();
 }
 
 function renderStatusFilters() {
-  const cnts = { all: state.tasks.length };
-  STATUSES.forEach(s => cnts[s] = state.tasks.filter(t => t.status === s).length);
+  const cnts = {};
+  STATUSES.forEach(s => { cnts[s] = state.tasks.filter(t => t.status === s).length; });
 
   document.getElementById('status-filters').innerHTML =
-    `<button class="filter-chip${state.statusFilter === 'all' ? ' is-active' : ''}"
-       onclick="setFilter('all')">
-       すべて <span class="chip-count">${cnts.all}</span>
-     </button>` +
     STATUSES.map(s =>
       `<button class="filter-chip${state.statusFilter === s ? ' is-active' : ''}"
-         onclick="setFilter('${s}')">
+         data-status="${s}" onclick="setFilter('${s}')">
          ${esc(s)} <span class="chip-count">${cnts[s]}</span>
        </button>`
     ).join('');
@@ -375,16 +457,12 @@ function renderStatusFilters() {
 
 function setFilter(f) {
   state.statusFilter = f;
-  renderStatusFilters();
-  renderTaskCards();
+  renderStatus();
 }
 
 function renderTaskCards() {
-  const list = state.statusFilter === 'all'
-    ? [...state.tasks].sort((a, b) => STATUSES.indexOf(a.status) - STATUSES.indexOf(b.status))
-    : state.tasks.filter(t => t.status === state.statusFilter);
-
-  const el = document.getElementById('status-content');
+  const list = state.tasks.filter(t => t.status === state.statusFilter);
+  const el   = document.getElementById('status-content');
 
   if (!list.length) {
     el.innerHTML = `<div class="empty-state">
@@ -398,27 +476,27 @@ function renderTaskCards() {
   el.innerHTML = list.map(task => {
     const st   = STATUS_STYLE[task.status] || {};
     const next = getNextStatus(task.status);
-    const platforms = task.platforms || [];
 
     return `
-      <div class="task-card" style="border-left-color:${st.border || '#E5E7EB'}"
+      <div class="task-card" data-task-id="${task.id}"
+           style="border-left-color:${st.border || '#E5E7EB'}"
            onclick="openEditTask('${task.id}')">
         <div class="task-card-top">
           <div class="task-title">${esc(task.title)}</div>
-          ${statusBadge(task.status)}
-        </div>
-        <div class="task-meta">
-          ${task.store    ? `<span class="meta-chip">📍 ${esc(task.store)}</span>`    : ''}
-          ${task.assignee ? `<span class="meta-chip">👤 ${esc(task.assignee)}</span>` : ''}
-          ${platforms.map(p => `<span class="meta-chip">${platformLabel(p)}</span>`).join('')}
+          <div class="task-card-actions">
+            ${statusBadge(task.status)}
+            <button class="video-action-btn video-delete-btn"
+              onclick="quickDeleteTask('${task.id}');event.stopPropagation()" title="削除">🗑️</button>
+          </div>
         </div>
         ${task.notes ? `<div class="task-notes-preview">${esc(task.notes)}</div>` : ''}
-        <div class="task-card-footer" onclick="event.stopPropagation()">
-          <span class="task-updated">${task.updatedAt ? '更新: ' + formatShortDate(task.updatedAt) : ''}</span>
-          ${next
-            ? `<button class="advance-btn" onclick="advanceTask('${task.id}');event.stopPropagation()">→ ${esc(next)}</button>`
-            : `<span class="done-chip">✓ 完了</span>`}
-        </div>
+        ${next
+          ? `<div class="task-card-footer" onclick="event.stopPropagation()">
+               <button class="advance-btn" onclick="advanceTask('${task.id}');event.stopPropagation()">→ ${esc(next)}</button>
+             </div>`
+          : `<div class="task-card-footer" onclick="event.stopPropagation()">
+               <span class="done-chip">✓ 完了</span>
+             </div>`}
       </div>`;
   }).join('');
 }
@@ -431,60 +509,277 @@ function advanceTask(id) {
   task.status    = next;
   task.updatedAt = new Date().toISOString();
   saveState();
+  state.statusFilter = next;
   renderStatus();
   if (state.activeTab === 'home') renderHome();
   showToast(`→ ${next} に進みました`);
+}
+
+function quickDeleteTask(id) {
+  const task = state.tasks.find(t => t.id === id);
+  if (!task) return;
+  const savedTask = { ...task };
+  const savedIdx  = state.tasks.indexOf(task);
+  state.tasks = state.tasks.filter(t => t.id !== id);
+  saveState();
+  renderStatus();
+  showToast(`「${task.title}」を削除しました`, () => {
+    state.tasks.splice(savedIdx, 0, savedTask);
+    saveState();
+    renderStatus();
+  });
+}
+
+// =============================================
+// STATUS DRAG
+// =============================================
+
+function setupTaskDrag() {
+  const cards = document.querySelectorAll('.task-card[data-task-id]');
+  const chips = document.querySelectorAll('.filter-chip[data-status]');
+
+  // ---- Desktop (HTML5 drag) ----
+  cards.forEach(card => {
+    const id   = card.dataset.taskId;
+    const task = state.tasks.find(t => t.id === id);
+    if (!task) return;
+
+    card.draggable = true;
+
+    card.addEventListener('dragstart', e => {
+      dragState.taskId      = id;
+      dragState.fromStatus  = task.status;
+      card.classList.add('is-dragging');
+      e.dataTransfer.effectAllowed = 'move';
+      chips.forEach(c => c.classList.add('is-drop-target'));
+    });
+
+    card.addEventListener('dragend', () => {
+      card.classList.remove('is-dragging');
+      chips.forEach(c => c.classList.remove('is-drop-target', 'drag-over'));
+      cards.forEach(c => c.classList.remove('drag-over'));
+      dragState.taskId = null;
+    });
+
+    card.addEventListener('dragover', e => {
+      if (!dragState.taskId || id === dragState.taskId) return;
+      const tTask = state.tasks.find(t => t.id === id);
+      if (tTask?.status !== dragState.fromStatus) return;
+      e.preventDefault();
+      cards.forEach(c => c.classList.remove('drag-over'));
+      card.classList.add('drag-over');
+    });
+
+    card.addEventListener('drop', e => {
+      e.preventDefault();
+      if (!dragState.taskId || id === dragState.taskId) return;
+      const tTask = state.tasks.find(t => t.id === id);
+      if (tTask?.status !== dragState.fromStatus) return;
+      reorderTasks(dragState.taskId, id);
+    });
+  });
+
+  chips.forEach(chip => {
+    chip.addEventListener('dragover', e => {
+      if (!dragState.taskId) return;
+      const s = chip.dataset.status;
+      if (s && s !== dragState.fromStatus) {
+        e.preventDefault();
+        chips.forEach(c => c.classList.remove('drag-over'));
+        chip.classList.add('drag-over');
+      }
+    });
+    chip.addEventListener('dragleave', () => chip.classList.remove('drag-over'));
+    chip.addEventListener('drop', e => {
+      e.preventDefault();
+      const s = chip.dataset.status;
+      if (!dragState.taskId || !s || s === dragState.fromStatus) return;
+      changeTaskStatus(dragState.taskId, s);
+    });
+  });
+
+  // ---- Mobile (touch long-press drag) ----
+  let longTimer = null, touchItem = null, touchClone = null, offX = 0, offY = 0;
+
+  cards.forEach(card => {
+    card.addEventListener('touchstart', e => {
+      const touch = e.touches[0];
+      const id    = card.dataset.taskId;
+      const task  = state.tasks.find(t => t.id === id);
+      if (!task) return;
+
+      longTimer = setTimeout(() => {
+        touchItem            = card;
+        dragState.taskId     = id;
+        dragState.fromStatus = task.status;
+
+        card.classList.add('is-dragging');
+        const rect = card.getBoundingClientRect();
+        offX = touch.clientX - rect.left;
+        offY = touch.clientY - rect.top;
+
+        touchClone = card.cloneNode(true);
+        touchClone.className += ' task-drag-clone';
+        touchClone.style.cssText += `;width:${rect.width}px;top:${rect.top}px;left:${rect.left}px;`;
+        document.body.appendChild(touchClone);
+        chips.forEach(c => c.classList.add('is-drop-target'));
+        navigator.vibrate?.(30);
+      }, 500);
+    }, { passive: true });
+
+    card.addEventListener('touchmove', e => {
+      if (!touchItem) { clearTimeout(longTimer); return; }
+      e.preventDefault();
+      const touch = e.touches[0];
+      if (touchClone) {
+        touchClone.style.top  = (touch.clientY - offY) + 'px';
+        touchClone.style.left = (touch.clientX - offX) + 'px';
+      }
+      chips.forEach(c => c.classList.remove('drag-over'));
+      cards.forEach(c => { if (c !== touchItem) c.classList.remove('drag-over'); });
+
+      const el   = document.elementFromPoint(touch.clientX, touch.clientY);
+      const chip = el?.closest('.filter-chip[data-status]');
+      const tCard= el?.closest('.task-card[data-task-id]');
+
+      if (chip && chip.dataset.status !== dragState.fromStatus) {
+        chip.classList.add('drag-over');
+      } else if (tCard && tCard !== touchItem) {
+        const tt = state.tasks.find(t => t.id === tCard.dataset.taskId);
+        if (tt?.status === dragState.fromStatus) tCard.classList.add('drag-over');
+      }
+    }, { passive: false });
+
+    card.addEventListener('touchend', e => {
+      clearTimeout(longTimer);
+      if (!touchItem) return;
+
+      const touch = e.changedTouches[0];
+      touchClone?.remove(); touchClone = null;
+      touchItem.classList.remove('is-dragging');
+      chips.forEach(c => c.classList.remove('is-drop-target', 'drag-over'));
+      cards.forEach(c => c.classList.remove('drag-over'));
+
+      const el    = document.elementFromPoint(touch.clientX, touch.clientY);
+      const chip  = el?.closest('.filter-chip[data-status]');
+      const tCard = el?.closest('.task-card[data-task-id]');
+
+      if (chip) {
+        const s = chip.dataset.status;
+        if (s && s !== dragState.fromStatus) changeTaskStatus(dragState.taskId, s);
+      } else if (tCard && tCard !== touchItem) {
+        const tt = state.tasks.find(t => t.id === tCard.dataset.taskId);
+        if (tt?.status === dragState.fromStatus) reorderTasks(dragState.taskId, tCard.dataset.taskId);
+      }
+
+      touchItem = null;
+      dragState.taskId = null;
+    }, { passive: true });
+  });
+}
+
+function reorderTasks(srcId, tgtId) {
+  const si = state.tasks.findIndex(t => t.id === srcId);
+  const ti = state.tasks.findIndex(t => t.id === tgtId);
+  if (si === -1 || ti === -1) return;
+  const [moved] = state.tasks.splice(si, 1);
+  state.tasks.splice(ti, 0, moved);
+  saveState();
+  renderStatus();
+}
+
+function changeTaskStatus(id, newStatus) {
+  const task = state.tasks.find(t => t.id === id);
+  if (!task) return;
+  task.status    = newStatus;
+  task.updatedAt = new Date().toISOString();
+  state.statusFilter = newStatus;
+  saveState();
+  renderStatus();
+  if (state.activeTab === 'home') renderHome();
+  showToast(`→ ${newStatus} に移動しました`);
 }
 
 // =============================================
 // VIDEO PAGE
 // =============================================
 
+function reelCard(m) {
+  return `
+    <div class="card reel-month-card">
+      <div class="reel-month-header">
+        <span class="reel-month-name">${esc(m.productionMonth)}リール</span>
+        ${m.postMonth ? `<span class="reel-post-hint">投稿: ${esc(m.postMonth)}</span>` : ''}
+      </div>
+      ${m.videos.map((v, i) => `
+        <div class="reel-video-row" onclick="openEditVideoModal('${m.id}','${v.id}')" style="cursor:pointer">
+          <span class="reel-num reel-num--${i + 1}">${CIRCLED[i] || (i + 1)}</span>
+          <div class="reel-row-info">
+            <div class="reel-row-title">${esc(v.title)}</div>
+            ${v.note ? `<div class="reel-row-note">📌 ${esc(v.note)}</div>` : ''}
+          </div>
+          <div class="reel-row-actions">
+            <button class="video-action-btn video-delete-btn"
+              onclick="deleteVideoItem('${m.id}','${v.id}');event.stopPropagation()" title="削除">🗑️</button>
+          </div>
+        </div>`).join('')}
+    </div>`;
+}
+
 function renderVideos() {
   const el  = document.getElementById('video-content');
   const tab = state.videoSubTab;
 
   if (tab === 'reels') {
-    if (!state.reels.length) {
-      el.innerHTML = `<div class="empty-state">
+    const addBtn = `<button class="content-add-btn" onclick="openAddReelModal('monthly')">＋ 月リール追加</button>`;
+    const items  = state.reels
+      .filter(r => r.type === 'monthly')
+      .sort((a, b) => b.year !== a.year ? b.year - a.year : monthToNum(b.productionMonth) - monthToNum(a.productionMonth));
+
+    if (!items.length) {
+      el.innerHTML = addBtn + `<div class="empty-state">
         <span class="empty-icon">🎬</span>
-        <div class="empty-label">リールがありません</div>
-        <div class="empty-hint">右上の「＋月追加」からリールを追加してください</div>
+        <div class="empty-label">月リールがありません</div>
+        <div class="empty-hint">「＋月リール追加」から追加してください</div>
       </div>`;
       return;
     }
-    el.innerHTML = state.reels.map(m => `
-      <div class="month-section">
-        <div class="month-header">
-          <span class="month-badge-prod">制作: ${esc(m.productionMonth)}</span>
-          <span class="month-arrow">→</span>
-          <span class="month-badge-post">投稿: ${esc(m.postMonth)}</span>
-        </div>
-        ${m.videos.map((v, i) => `
-          <div class="video-item">
-            <div class="video-num">${CIRCLED[i] || (i + 1)}</div>
-            <div class="video-info">
-              <div class="video-title">${esc(v.title)}</div>
-              ${v.note ? `<div class="video-note">📌 ${esc(v.note)}</div>` : ''}
-            </div>
-            <div class="video-actions">
-              <button class="video-action-btn"
-                onclick="openEditVideoModal('${m.id}','${v.id}');event.stopPropagation()"
-                title="編集">✏️</button>
-              <button class="video-action-btn video-delete-btn"
-                onclick="deleteVideoItem('${m.id}','${v.id}');event.stopPropagation()"
-                title="削除">🗑️</button>
-            </div>
-          </div>`).join('')}
-      </div>`).join('');
-  } else {
-    const isJp = tab === 'youtube-jp';
-    el.innerHTML = `
-      <div class="todo-card">
-        <div class="todo-icon">${isJp ? '▶️' : '🌏▶️'}</div>
-        <div class="todo-title">${isJp ? 'YouTube（日本語）' : '英語YouTube'} 過去投稿リスト</div>
-        <div class="todo-sub">TODO：実際のリストをここに追加してください</div>
+
+    let html = addBtn;
+    items.forEach((m, i) => {
+      const prev = items[i - 1];
+      if (!prev || prev.year !== m.year) {
+        html += `<div class="year-divider">${m.year}</div>`;
+      }
+      html += reelCard(m);
+    });
+    el.innerHTML = html;
+
+  } else if (tab === 'ec' || tab === 'personal') {
+    const label   = tab === 'ec' ? 'ECリール' : '個人リール';
+    const addBtn  = `<button class="content-add-btn" onclick="openAddReelModal('${tab}')">＋ ${label}追加</button>`;
+    const items   = state.reels
+      .filter(r => r.type === tab)
+      .sort((a, b) => b.year !== a.year ? b.year - a.year : monthToNum(b.productionMonth) - monthToNum(a.productionMonth));
+
+    if (!items.length) {
+      el.innerHTML = addBtn + `<div class="empty-state">
+        <span class="empty-icon">🎬</span>
+        <div class="empty-label">${label}がありません</div>
+        <div class="empty-hint">「＋${label}追加」から追加してください</div>
       </div>`;
+      return;
+    }
+
+    let ecHtml = addBtn;
+    items.forEach((m, i) => {
+      const prev = items[i - 1];
+      if (!prev || prev.year !== m.year) {
+        ecHtml += `<div class="year-divider">${m.year}</div>`;
+      }
+      ecHtml += reelCard(m);
+    });
+    el.innerHTML = ecHtml;
   }
 }
 
@@ -533,6 +828,197 @@ function renderPosts() {
 }
 
 // =============================================
+// NOTES PAGE
+// =============================================
+
+function renderNotes() {
+  const el = document.getElementById('notes-content');
+  if (!state.notes.length) {
+    el.innerHTML = `<div class="empty-state">
+      <span class="empty-icon">📓</span>
+      <div class="empty-label">ノートがありません</div>
+      <div class="empty-hint">右上の「＋追加」からノートを追加してください</div>
+    </div>`;
+    return;
+  }
+
+  const pinned   = state.notes.filter(n => n.pinned);
+  const unpinned = state.notes.filter(n => !n.pinned);
+
+  const noteHTML = (note) => `
+    <div class="note-item${note.pinned ? ' is-pinned' : ''}" data-note-id="${note.id}" draggable="true">
+      <div class="note-drag-handle">⠿</div>
+      <div class="note-body" onclick="openEditNote('${note.id}')">
+        <div class="note-content">${esc(note.content)}</div>
+      </div>
+      <button class="note-pin-btn"
+        onclick="toggleNotePin('${note.id}');event.stopPropagation()"
+        title="${note.pinned ? 'ピン解除' : 'ピン留め'}">${note.pinned ? '📌' : '📍'}</button>
+    </div>`;
+
+  let html = '';
+  if (pinned.length) {
+    html += `<div class="notes-section-label">📌 ピン留め</div>`;
+    html += pinned.map(noteHTML).join('');
+    if (unpinned.length) html += `<div class="notes-section-label" style="margin-top:8px">メモ</div>`;
+  }
+  html += `<div id="notes-drag-list">${unpinned.map(noteHTML).join('')}</div>`;
+
+  el.innerHTML = html;
+  setupNoteDrag();
+}
+
+function setupNoteDrag() {
+  const list = document.getElementById('notes-drag-list');
+  if (!list) return;
+
+  let dragSrc = null;
+
+  list.querySelectorAll('.note-item').forEach(item => {
+    item.addEventListener('dragstart', e => {
+      dragSrc = item;
+      item.classList.add('is-dragging');
+      e.dataTransfer.effectAllowed = 'move';
+    });
+    item.addEventListener('dragend', () => {
+      item.classList.remove('is-dragging');
+      list.querySelectorAll('.note-item').forEach(i => i.classList.remove('drag-over'));
+    });
+    item.addEventListener('dragover', e => {
+      e.preventDefault();
+      if (item !== dragSrc) {
+        list.querySelectorAll('.note-item').forEach(i => i.classList.remove('drag-over'));
+        item.classList.add('drag-over');
+      }
+    });
+    item.addEventListener('drop', e => {
+      e.preventDefault();
+      if (!dragSrc || dragSrc === item) return;
+      reorderNotes(dragSrc.dataset.noteId, item.dataset.noteId);
+    });
+  });
+
+  // Touch drag (long press)
+  let longTimer = null, touchDragItem = null, touchClone = null, touchOffsetY = 0;
+
+  list.querySelectorAll('.note-item').forEach(item => {
+    item.addEventListener('touchstart', e => {
+      const t = e.touches[0];
+      longTimer = setTimeout(() => {
+        touchDragItem = item;
+        item.classList.add('is-dragging');
+        const rect = item.getBoundingClientRect();
+        touchOffsetY = t.clientY - rect.top;
+        touchClone = item.cloneNode(true);
+        touchClone.classList.add('note-drag-clone');
+        touchClone.style.cssText += `;width:${rect.width}px;top:${rect.top}px;left:${rect.left}px;`;
+        document.body.appendChild(touchClone);
+        navigator.vibrate?.(30);
+      }, 500);
+    }, { passive: true });
+
+    item.addEventListener('touchmove', e => {
+      if (!touchDragItem) { clearTimeout(longTimer); return; }
+      e.preventDefault();
+      const t = e.touches[0];
+      if (touchClone) touchClone.style.top = (t.clientY - touchOffsetY) + 'px';
+      list.querySelectorAll('.note-item').forEach(i => i.classList.remove('drag-over'));
+      for (const el of list.querySelectorAll('.note-item:not(.is-dragging)')) {
+        const r = el.getBoundingClientRect();
+        if (t.clientY >= r.top && t.clientY <= r.bottom) { el.classList.add('drag-over'); break; }
+      }
+    }, { passive: false });
+
+    item.addEventListener('touchend', () => {
+      clearTimeout(longTimer);
+      if (!touchDragItem) return;
+      touchClone?.remove(); touchClone = null;
+      touchDragItem.classList.remove('is-dragging');
+      const target = list.querySelector('.note-item.drag-over');
+      if (target) reorderNotes(touchDragItem.dataset.noteId, target.dataset.noteId);
+      touchDragItem = null;
+    }, { passive: true });
+  });
+}
+
+function reorderNotes(srcId, tgtId) {
+  const unpinned = state.notes.filter(n => !n.pinned);
+  const si = unpinned.findIndex(n => n.id === srcId);
+  const ti = unpinned.findIndex(n => n.id === tgtId);
+  if (si === -1 || ti === -1) return;
+  const [moved] = unpinned.splice(si, 1);
+  unpinned.splice(ti, 0, moved);
+  state.notes = [...state.notes.filter(n => n.pinned), ...unpinned];
+  saveState();
+  renderNotes();
+}
+
+function toggleNotePin(id) {
+  const note = state.notes.find(n => n.id === id);
+  if (!note) return;
+  note.pinned = !note.pinned;
+  saveState();
+  renderNotes();
+}
+
+function openAddNote() {
+  state.editingNoteId = null;
+  document.getElementById('note-modal-title').textContent = 'ノート追加';
+  document.getElementById('note-id').value      = '';
+  document.getElementById('note-content').value = '';
+  document.getElementById('note-pinned').checked = false;
+  document.getElementById('delete-note-btn').classList.add('is-hidden');
+  document.getElementById('note-modal').classList.remove('is-hidden');
+  setTimeout(() => document.getElementById('note-content').focus(), 100);
+}
+
+function openEditNote(id) {
+  const note = state.notes.find(n => n.id === id);
+  if (!note) return;
+  state.editingNoteId = id;
+  document.getElementById('note-modal-title').textContent = 'ノート編集';
+  document.getElementById('note-id').value       = id;
+  document.getElementById('note-content').value  = note.content;
+  document.getElementById('note-pinned').checked = note.pinned;
+  document.getElementById('delete-note-btn').classList.remove('is-hidden');
+  document.getElementById('note-modal').classList.remove('is-hidden');
+}
+
+function closeNoteModal() {
+  document.getElementById('note-modal').classList.add('is-hidden');
+  state.editingNoteId = null;
+}
+
+function onSaveNote(e) {
+  e.preventDefault();
+  const content = document.getElementById('note-content').value.trim();
+  if (!content) return;
+  const pinned = document.getElementById('note-pinned').checked;
+
+  if (state.editingNoteId) {
+    const note = state.notes.find(n => n.id === state.editingNoteId);
+    if (note) { note.content = content; note.pinned = pinned; }
+    showToast('ノートを更新しました');
+  } else {
+    state.notes.push({ id: uid(), content, pinned, createdAt: new Date().toISOString() });
+    showToast('ノートを追加しました');
+  }
+  saveState();
+  closeNoteModal();
+  renderNotes();
+}
+
+function onDeleteNote() {
+  if (!state.editingNoteId) return;
+  if (!confirm('このノートを削除しますか？')) return;
+  state.notes = state.notes.filter(n => n.id !== state.editingNoteId);
+  saveState();
+  closeNoteModal();
+  renderNotes();
+  showToast('ノートを削除しました');
+}
+
+// =============================================
 // LINKS PAGE
 // =============================================
 
@@ -578,14 +1064,10 @@ function initTaskFormElements() {
   storeEl.innerHTML = '<option value="">未選択</option>' +
     STORES.map(s => `<option value="${esc(s)}">${esc(s)}</option>`).join('');
 
-  const assigneeEl = document.getElementById('task-assignee');
-  assigneeEl.innerHTML = '<option value="">未選択</option>' +
-    TEAM.map(m => `<option value="${esc(m.name)}">${m.emoji} ${esc(m.name)}（${esc(m.role)}）</option>`).join('');
-
   document.getElementById('platform-grid').innerHTML =
     PLATFORMS.map(p =>
       `<div class="platform-chip" data-platform="${p.id}" onclick="togglePlatform('${p.id}')">
-         ${p.icon} ${p.name}
+         ${p.name}
        </div>`
     ).join('');
 
@@ -602,15 +1084,15 @@ function initTaskFormElements() {
 
 function openAddTaskModal() {
   state.editingTaskId = null;
-  document.getElementById('modal-title').textContent = 'タスク追加';
+  document.getElementById('modal-title').textContent = '📝 タスク追加';
   document.getElementById('task-id').value    = '';
   document.getElementById('task-title').value = '';
   document.getElementById('task-store').value = '';
-  document.getElementById('task-assignee').value = '';
   document.getElementById('task-notes').value = '';
   document.getElementById('delete-task-btn').classList.add('is-hidden');
+  document.getElementById('task-updated-info')?.classList.add('is-hidden');
   document.querySelectorAll('.platform-chip').forEach(c => c.classList.remove('is-selected'));
-  selectStatusChip('撮影中');
+  clearStatusChips();
   document.getElementById('task-modal').classList.remove('is-hidden');
   setTimeout(() => document.getElementById('task-title').focus(), 100);
 }
@@ -619,17 +1101,21 @@ function openEditTask(id) {
   const task = state.tasks.find(t => t.id === id);
   if (!task) return;
   state.editingTaskId = id;
-  document.getElementById('modal-title').textContent      = 'タスク編集';
-  document.getElementById('task-id').value                = id;
-  document.getElementById('task-title').value             = task.title || '';
-  document.getElementById('task-store').value             = task.store || '';
-  document.getElementById('task-assignee').value          = task.assignee || '';
-  document.getElementById('task-notes').value             = task.notes || '';
+  document.getElementById('modal-title').textContent = '📝 タスク追加';
+  document.getElementById('task-id').value           = id;
+  document.getElementById('task-title').value        = task.title || '';
+  document.getElementById('task-store').value        = task.store || '';
+  document.getElementById('task-notes').value        = task.notes || '';
   document.getElementById('delete-task-btn').classList.remove('is-hidden');
   document.querySelectorAll('.platform-chip').forEach(c => {
     c.classList.toggle('is-selected', (task.platforms || []).includes(c.dataset.platform));
   });
   selectStatusChip(task.status);
+  const infoEl = document.getElementById('task-updated-info');
+  if (infoEl) {
+    infoEl.textContent = task.updatedAt ? `更新: ${formatShortDate(task.updatedAt)}` : '';
+    infoEl.classList.toggle('is-hidden', !task.updatedAt);
+  }
   document.getElementById('task-modal').classList.remove('is-hidden');
 }
 
@@ -640,6 +1126,17 @@ function closeTaskModal() {
 
 function togglePlatform(id) {
   document.querySelector(`.platform-chip[data-platform="${id}"]`)?.classList.toggle('is-selected');
+}
+
+function clearStatusChips() {
+  document.querySelectorAll('.status-chip-option').forEach(c => {
+    const st = STATUS_STYLE[c.dataset.status];
+    c.style.background  = '';
+    c.style.borderColor = st.border;
+    c.style.color       = st.text;
+    c.style.fontWeight  = '600';
+    delete c.dataset.selected;
+  });
 }
 
 function selectStatusChip(status) {
@@ -671,12 +1168,12 @@ function onSaveTask(e) {
     .map(c => c.dataset.platform);
 
   const selectedChip = document.querySelector('.status-chip-option[data-selected="true"]');
-  const status = selectedChip ? selectedChip.dataset.status : '撮影中';
+  if (!selectedChip) { showToast('ステータスを選択してください'); return; }
+  const status = selectedChip.dataset.status;
 
   const data = {
     title,
     store:     document.getElementById('task-store').value,
-    assignee:  document.getElementById('task-assignee').value,
     platforms,
     status,
     notes:     document.getElementById('task-notes').value.trim(),
@@ -699,12 +1196,19 @@ function onSaveTask(e) {
 
 function onDeleteTask() {
   if (!state.editingTaskId) return;
-  if (!confirm('このタスクを削除しますか？')) return;
+  const task = state.tasks.find(t => t.id === state.editingTaskId);
+  if (!task) return;
+  const savedTask = { ...task };
+  const savedIdx  = state.tasks.indexOf(task);
   state.tasks = state.tasks.filter(t => t.id !== state.editingTaskId);
   saveState();
   closeTaskModal();
   refreshCurrentTab();
-  showToast('タスクを削除しました');
+  showToast(`「${savedTask.title}」を削除しました`, () => {
+    state.tasks.splice(savedIdx, 0, savedTask);
+    saveState();
+    refreshCurrentTab();
+  });
 }
 
 // =============================================
@@ -794,9 +1298,11 @@ function onDeleteLink() {
 // REEL MODAL
 // =============================================
 
-function openAddReelModal() {
-  document.getElementById('reel-modal-title').textContent = '月リール追加';
-  document.getElementById('reel-mode').value    = 'add';
+function openAddReelModal(type = 'monthly') {
+  const labels = { monthly: '月リール追加', ec: 'ECリール追加', personal: '個人リール追加' };
+  document.getElementById('reel-modal-title').textContent = labels[type] || '追加';
+  document.getElementById('reel-mode').value     = 'add';
+  document.getElementById('reel-type').value     = type;
   document.getElementById('reel-group-id').value = '';
   document.getElementById('reel-video-id').value = '';
   document.getElementById('reel-prod-month').value = '';
@@ -806,13 +1312,27 @@ function openAddReelModal() {
   document.getElementById('reel-title-2').value  = '';
   document.getElementById('reel-note-2').value   = '';
   document.getElementById('reel-gen-tasks').checked = true;
-  document.getElementById('reel-label-1').textContent = 'リール① タイトル';
+  document.getElementById('reel-label-1').innerHTML = 'リール① タイトル <span class="required">*</span>';
 
   document.getElementById('reel-month-section').classList.remove('is-hidden');
-  document.getElementById('reel-video2-section').classList.remove('is-hidden');
-  document.getElementById('reel-task-gen-section').classList.remove('is-hidden');
   document.getElementById('delete-reel-btn').classList.add('is-hidden');
   document.getElementById('reel-submit-btn').textContent = '追加';
+
+  const isMonthly  = type === 'monthly';
+  const isEc       = type === 'ec';
+  const isPersonal = type === 'personal';
+
+  document.getElementById('reel-video2-section').classList.toggle('is-hidden', !isMonthly);
+  document.getElementById('reel-task-gen-section').classList.toggle('is-hidden', !isMonthly);
+  document.getElementById('reel-post-month-group').classList.toggle('is-hidden', !isMonthly);
+  document.getElementById('reel-ec-note').classList.toggle('is-hidden', !isEc);
+  document.getElementById('reel-personal-store-section').classList.toggle('is-hidden', !isPersonal);
+
+  if (isPersonal) {
+    document.getElementById('store-check-grid').innerHTML = STORES.map(s =>
+      `<label class="checkbox-label"><input type="checkbox" name="personal-store" value="${esc(s)}"> ${esc(s)}</label>`
+    ).join('');
+  }
 
   document.getElementById('reel-modal').classList.remove('is-hidden');
   setTimeout(() => document.getElementById('reel-prod-month').focus(), 100);
@@ -831,7 +1351,7 @@ function openEditVideoModal(groupId, videoId) {
   document.getElementById('reel-video-id').value = videoId;
   document.getElementById('reel-title-1').value  = video.title;
   document.getElementById('reel-note-1').value   = video.note || '';
-  document.getElementById('reel-label-1').textContent = 'タイトル';
+  document.getElementById('reel-label-1').innerHTML = 'タイトル <span class="required">*</span>';
 
   document.getElementById('reel-month-section').classList.add('is-hidden');
   document.getElementById('reel-video2-section').classList.add('is-hidden');
@@ -853,7 +1373,6 @@ function generateTasksForVideo(videoTitle, circledNum, prodMonth, postMonth) {
       id:        uid(),
       title:     `${store}${circledNum}${videoTitle}`,
       store:     store,
-      assignee:  '',
       platforms: [],
       status:    '撮影中',
       notes:     `制作: ${prodMonth} / 投稿: ${postMonth}`,
@@ -868,6 +1387,7 @@ function onSaveReel(e) {
   const mode = document.getElementById('reel-mode').value;
 
   if (mode === 'add') {
+    const type      = document.getElementById('reel-type').value || 'monthly';
     const prodMonth = document.getElementById('reel-prod-month').value.trim();
     const postMonth = document.getElementById('reel-post-month').value.trim();
     const title1    = document.getElementById('reel-title-1').value.trim();
@@ -876,26 +1396,49 @@ function onSaveReel(e) {
     const note2     = document.getElementById('reel-note-2').value.trim();
     const genTasks  = document.getElementById('reel-gen-tasks').checked;
 
-    if (!prodMonth || !postMonth) {
-      showToast('制作月・投稿月を入力してください');
-      return;
-    }
-    if (!title1 && !title2) {
-      showToast('リール①か②のタイトルを入力してください');
-      return;
+    if (!prodMonth) { showToast('制作月を選択してください'); return; }
+    if (!title1)    { showToast('リール① のタイトルを入力してください'); return; }
+    if (type === 'monthly' && !title2) {
+      showToast('リール② のタイトルを入力してください'); return;
     }
 
-    const videos = [];
-    if (title1) videos.push({ id: uid(), title: title1, note: note1 });
+    const videos = [{ id: uid(), title: title1, note: note1 }];
     if (title2) videos.push({ id: uid(), title: title2, note: note2 });
 
-    state.reels.push({ id: uid(), productionMonth: prodMonth, postMonth, videos });
+    state.reels.push({
+      id: uid(), year: new Date().getFullYear(), type,
+      productionMonth: prodMonth, postMonth, videos,
+    });
 
-    if (genTasks) {
-      videos.forEach((v, i) => {
-        generateTasksForVideo(v.title, CIRCLED[i] || `${i + 1}`, prodMonth, postMonth);
+    if (type === 'monthly') {
+      if (genTasks) {
+        videos.forEach((v, i) => {
+          generateTasksForVideo(v.title, CIRCLED[i] || `${i + 1}`, prodMonth, postMonth);
+        });
+        showToast(`追加しました（${videos.length * STORES.length}件のタスクを生成）`);
+      } else {
+        showToast('リールを追加しました');
+      }
+    } else if (type === 'ec') {
+      state.tasks.unshift({
+        id: uid(), title: `EC①${title1}`, store: 'EC店',
+        platforms: [], status: '撮影中',
+        notes: `制作: ${prodMonth}`,
+        createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
       });
-      showToast(`追加しました（${videos.length * STORES.length}件のタスクを生成）`);
+      showToast('ECリールを追加しました（EC店のタスク1件を生成）');
+    } else if (type === 'personal') {
+      const selectedStores = [...document.querySelectorAll('input[name="personal-store"]:checked')].map(cb => cb.value);
+      selectedStores.forEach(store => {
+        state.tasks.unshift({
+          id: uid(), title: `${store}①${title1}`, store,
+          platforms: [], status: '撮影中',
+          notes: `制作: ${prodMonth}`,
+          createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
+        });
+      });
+      const count = selectedStores.length;
+      showToast(count ? `個人リールを追加しました（${count}件のタスクを生成）` : '個人リールを追加しました');
     } else {
       showToast('リールを追加しました');
     }
@@ -928,7 +1471,10 @@ function onDeleteReel() {
   const group   = state.reels.find(m => m.id === groupId);
   if (!group) return;
   const video = group.videos.find(v => v.id === videoId);
-  if (!confirm(`「${video?.title}」を削除しますか？`)) return;
+  if (!video) return;
+  const savedTitle    = video.title;
+  const savedGroup    = { ...group, videos: [...group.videos] };
+  const savedGroupIdx = state.reels.indexOf(group);
 
   group.videos = group.videos.filter(v => v.id !== videoId);
   if (!group.videos.length) state.reels = state.reels.filter(m => m.id !== groupId);
@@ -936,21 +1482,35 @@ function onDeleteReel() {
   saveState();
   closeReelModal();
   renderVideos();
-  showToast('リールを削除しました');
+  showToast(`「${savedTitle}」を削除しました`, () => {
+    const existing = state.reels.find(m => m.id === groupId);
+    if (existing) { existing.videos = savedGroup.videos; }
+    else { state.reels.splice(savedGroupIdx, 0, savedGroup); }
+    saveState();
+    renderVideos();
+  });
 }
 
 function deleteVideoItem(groupId, videoId) {
   const group = state.reels.find(m => m.id === groupId);
   const video = group?.videos.find(v => v.id === videoId);
   if (!video) return;
-  if (!confirm(`「${video.title}」を削除しますか？`)) return;
+  const savedTitle    = video.title;
+  const savedGroup    = { ...group, videos: [...group.videos] };
+  const savedGroupIdx = state.reels.indexOf(group);
 
   group.videos = group.videos.filter(v => v.id !== videoId);
   if (!group.videos.length) state.reels = state.reels.filter(m => m.id !== groupId);
 
   saveState();
   renderVideos();
-  showToast('リールを削除しました');
+  showToast(`「${savedTitle}」を削除しました`, () => {
+    const existing = state.reels.find(m => m.id === groupId);
+    if (existing) { existing.videos = savedGroup.videos; }
+    else { state.reels.splice(savedGroupIdx, 0, savedGroup); }
+    saveState();
+    renderVideos();
+  });
 }
 
 // =============================================
@@ -959,7 +1519,7 @@ function deleteVideoItem(groupId, videoId) {
 
 function refreshCurrentTab() {
   ({ home: renderHome, status: renderStatus, videos: renderVideos,
-     posts: renderPosts, links: renderLinks })[state.activeTab]?.();
+     posts: renderPosts, notes: renderNotes, links: renderLinks })[state.activeTab]?.();
 }
 
 // =============================================
@@ -1005,11 +1565,31 @@ function setupEvents() {
   );
 
   // Reel modal
-  document.getElementById('add-reel-btn').addEventListener('click', openAddReelModal);
   document.getElementById('close-reel-modal').addEventListener('click', closeReelModal);
   document.getElementById('reel-modal-backdrop').addEventListener('click', closeReelModal);
   document.getElementById('reel-form').addEventListener('submit', onSaveReel);
   document.getElementById('delete-reel-btn').addEventListener('click', onDeleteReel);
+
+  // 制作月 → 投稿月 自動入力
+  const NEXT_MONTH = {
+    '1月':'2月','2月':'3月','3月':'4月','4月':'5月','5月':'6月','6月':'7月',
+    '7月':'8月','8月':'9月','9月':'10月','10月':'11月','11月':'12月','12月':'1月',
+  };
+  document.getElementById('reel-prod-month').addEventListener('change', function () {
+    document.getElementById('reel-post-month').value = this.value ? (NEXT_MONTH[this.value] || '') : '';
+  });
+
+  // Note modal
+  document.getElementById('add-note-btn').addEventListener('click', openAddNote);
+  document.getElementById('close-note-modal').addEventListener('click', closeNoteModal);
+  document.getElementById('note-modal-backdrop').addEventListener('click', closeNoteModal);
+  document.getElementById('note-form').addEventListener('submit', onSaveNote);
+  document.getElementById('delete-note-btn').addEventListener('click', onDeleteNote);
+
+  // Announce modal
+  document.getElementById('close-announce-modal').addEventListener('click', closeAnnounceModal);
+  document.getElementById('announce-modal-backdrop').addEventListener('click', closeAnnounceModal);
+  document.getElementById('announce-form').addEventListener('submit', onSaveAnnouncement);
 }
 
 // =============================================
@@ -1018,6 +1598,7 @@ function setupEvents() {
 
 function init() {
   loadState();
+  saveState(); // persist initial reels so IDs are stable across reloads
   initTaskFormElements();
   setupEvents();
   navigate('home');
