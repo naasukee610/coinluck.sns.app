@@ -276,18 +276,36 @@ function showToast(msg, undoFn) {
 }
 
 function copyText(text) {
-  navigator.clipboard.writeText(text).then(
-    ()  => showToast('コピーしました！'),
-    ()  => {
-      const ta = document.createElement('textarea');
-      ta.value = text;
-      ta.style.cssText = 'position:fixed;opacity:0;pointer-events:none;';
-      document.body.appendChild(ta);
-      ta.select();
-      try { document.execCommand('copy'); showToast('コピーしました！'); } catch (_) {}
-      document.body.removeChild(ta);
-    }
-  );
+  if (navigator.clipboard?.writeText) {
+    navigator.clipboard.writeText(text).then(
+      () => showToast('コピーしました！'),
+      () => copyFallback(text)
+    );
+  } else {
+    copyFallback(text);
+  }
+}
+
+function copyFallback(text) {
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.setAttribute('readonly', '');
+  ta.style.cssText = 'position:fixed;top:-9999px;left:-9999px;opacity:0;';
+  document.body.appendChild(ta);
+  ta.focus();
+  ta.setSelectionRange(0, ta.value.length); // iOS Safari requires this
+  try {
+    document.execCommand('copy');
+    showToast('コピーしました！');
+  } catch (_) {
+    showToast('コピーできませんでした');
+  }
+  document.body.removeChild(ta);
+}
+
+function copyLinkContent(id) {
+  const link = state.links.find(l => l.id === id);
+  if (link) copyText(link.content);
 }
 
 // =============================================
@@ -1194,7 +1212,7 @@ function renderLinks() {
             <div class="link-label">${esc(link.label)}</div>
             <div class="link-preview">${esc(link.content)}</div>
           </div>
-          <button class="copy-btn" onclick="copyText(${JSON.stringify(link.content)})">コピー</button>
+          <button class="copy-btn" onclick="copyLinkContent('${link.id}')">コピー</button>
         </div>`).join('')}
     </div>`).join('');
 
