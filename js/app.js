@@ -676,6 +676,15 @@ function setupTaskDrag() {
       touchItem = null;
       dragState.taskId = null;
     }, { passive: true });
+
+    card.addEventListener('touchcancel', () => {
+      clearTimeout(longTimer);
+      touchClone?.remove(); touchClone = null;
+      if (touchItem) { touchItem.classList.remove('is-dragging'); touchItem = null; }
+      chips.forEach(c => c.classList.remove('is-drop-target', 'drag-over'));
+      cards.forEach(c => c.classList.remove('drag-over'));
+      dragState.taskId = null; dragState.fromStatus = null;
+    }, { passive: true });
   });
 }
 
@@ -898,6 +907,13 @@ function setupPostsDrag() {
         if (target) reorderTasks(touchDragItem.dataset.taskId, target.dataset.taskId);
         touchDragItem = null;
       }, { passive: true });
+
+      row.addEventListener('touchcancel', () => {
+        clearTimeout(longTimer);
+        touchClone?.remove(); touchClone = null;
+        if (touchDragItem) { touchDragItem.classList.remove('is-dragging'); touchDragItem = null; }
+        section.querySelectorAll('.post-task-row').forEach(r => r.classList.remove('drag-over'));
+      }, { passive: true });
     });
   });
 }
@@ -1027,6 +1043,13 @@ function setupNoteDrag() {
         const target = list.querySelector('.note-item.drag-over');
         if (target) reorderNotes(touchDragItem.dataset.noteId, target.dataset.noteId);
         touchDragItem = null;
+      }, { passive: true });
+
+      item.addEventListener('touchcancel', () => {
+        clearTimeout(longTimer);
+        touchClone?.remove(); touchClone = null;
+        if (touchDragItem) { touchDragItem.classList.remove('is-dragging'); touchDragItem = null; }
+        list.querySelectorAll('.note-item').forEach(i => i.classList.remove('drag-over'));
       }, { passive: true });
     });
   });
@@ -1257,6 +1280,13 @@ function setupLinksDrag() {
         const target = group.querySelector('.link-item.drag-over');
         if (target) reorderLinks(touchDragItem.dataset.linkId, target.dataset.linkId);
         touchDragItem = null;
+      }, { passive: true });
+
+      item.addEventListener('touchcancel', () => {
+        clearTimeout(longTimer);
+        touchClone?.remove(); touchClone = null;
+        if (touchDragItem) { touchDragItem.classList.remove('is-dragging'); touchDragItem = null; }
+        group.querySelectorAll('.link-item').forEach(i => i.classList.remove('drag-over'));
       }, { passive: true });
     });
   });
@@ -1813,10 +1843,12 @@ function init() {
 
 document.addEventListener('DOMContentLoaded', init);
 
-// iOS Safari ignores user-scalable=no in viewport meta — prevent pinch/double-tap zoom via JS
-document.addEventListener('touchstart', e => {
-  if (e.touches.length > 1) e.preventDefault();
-}, { passive: false });
+// Prevent pinch/double-tap zoom on iOS (viewport meta alone is ignored by Safari/Chrome on iOS)
+document.addEventListener('touchstart',  e => { if (e.touches.length > 1) e.preventDefault(); }, { passive: false });
+document.addEventListener('touchmove',   e => { if (e.touches.length > 1) e.preventDefault(); }, { passive: false });
+document.addEventListener('gesturestart',  e => e.preventDefault(), false);
+document.addEventListener('gesturechange', e => e.preventDefault(), false);
+document.addEventListener('gestureend',    e => e.preventDefault(), false);
 
 let _lastTap = 0;
 document.addEventListener('touchend', e => {
