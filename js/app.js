@@ -192,7 +192,9 @@ function loadState() {
     const raw = localStorage.getItem('coinluck_v1');
     if (raw) {
       const saved = JSON.parse(raw);
-      state.tasks         = saved.tasks  || [];
+      state.tasks         = (saved.tasks  || []).map(t =>
+        t.title?.includes('英語●') ? { ...t, title: t.title.replace(/英語●/g, '英語○') } : t
+      );
       state.links         = saved.links  || [];
       state.reels         = saved.reels  && saved.reels.length
         ? saved.reels.map(r => ({ year: 2026, type: 'monthly', ...r }))
@@ -842,7 +844,7 @@ function advanceTaskTo(id, targetStatus, overrideCategory = null) {
   if (!task) return;
 
   if (targetStatus === '投稿') {
-    const isEnglish = task.title.startsWith('英語●');
+    const isEnglish = task.title.startsWith('英語○') || task.title.startsWith('英語●');
     const pids = isEnglish
       ? ['tiktok_en', 'instagram_en', 'youtube_en']
       : ['tiktok_jp', 'instagram_jp', 'youtube_jp'];
@@ -1230,7 +1232,7 @@ function reelCard(m, draggable = false) {
       </div>` : ''}
       ${m.videos.map((v, i) => `
         <div class="reel-video-row" onclick="openEditVideoModal('${m.id}','${v.id}')" style="cursor:pointer">
-          <span class="reel-num reel-num--${i + 1}">${m.type === 'monthly' ? (CIRCLED[i] || (i + 1)) : '●'}</span>
+          <span class="reel-num reel-num--${i + 1}">${m.type === 'monthly' ? (CIRCLED[i] || (i + 1)) : '○'}</span>
           <div class="reel-row-info">
             <div class="reel-row-title">${esc(v.title)}</div>
             ${v.note ? `<div class="reel-row-note">📌 ${esc(v.note)}</div>` : ''}
@@ -2491,7 +2493,7 @@ function onSaveReel(e) {
       state.reels.push({ id: uid(), year: new Date().getFullYear(), type, productionMonth: prodMonth, postMonth, videos: reelVideos });
       selectedStores.forEach(store => {
         state.tasks.unshift({
-          id: uid(), title: `英語●${store}${title1}`, store,
+          id: uid(), title: `英語○${store}${title1}`, store,
           platforms: [], status: 'ゆっきー', notes: '',
           createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
         });

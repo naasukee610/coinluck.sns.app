@@ -508,7 +508,11 @@ body {
 }
 .note-content {
   font-size: 0.84rem; line-height: 1.55;
-  white-space: pre-wrap; word-break: break-word;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  word-break: break-word;
 }
 
 .note-pin-btn {
@@ -819,7 +823,7 @@ body {
 .reel-video-row + .reel-video-row { border-top: 1px solid var(--border); }
 
 .reel-num {
-  font-size: 0.87rem; font-weight: 700; color: var(--text);
+  font-size: 0.87rem; font-weight: 700; color: var(--muted);
   flex-shrink: 0;
 }
 .reel-num--1 {}
