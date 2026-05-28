@@ -786,9 +786,9 @@ function changeTaskStatus(id, newStatus) {
 // VIDEO PAGE
 // =============================================
 
-function reelCard(m) {
+function reelCard(m, draggable = false) {
   return `
-    <div class="card reel-month-card">
+    <div class="card reel-month-card" data-reel-id="${m.id}"${draggable ? ' draggable="true"' : ''}>
       <div class="reel-month-header">
         <span class="reel-month-name">${esc(m.productionMonth)}リール</span>
         ${m.postMonth ? `<span class="reel-post-hint">投稿: ${esc(m.postMonth)}</span>` : ''}
@@ -837,6 +837,32 @@ function renderVideos() {
     });
     el.innerHTML = html;
 
+  } else if (tab === 'english') {
+    const addBtn = `<button class="content-add-btn" onclick="openAddReelModal('english')">＋ 英語リール追加</button>`;
+    const items  = state.reels
+      .filter(r => r.type === 'english')
+      .sort((a, b) => b.year !== a.year ? b.year - a.year : monthToNum(b.productionMonth) - monthToNum(a.productionMonth));
+
+    if (!items.length) {
+      el.innerHTML = addBtn + `<div class="empty-state">
+        <span class="empty-icon">🌐</span>
+        <div class="empty-label">英語リールがありません</div>
+        <div class="empty-hint">「＋英語リール追加」から追加してください</div>
+      </div>`;
+      return;
+    }
+
+    let html = addBtn;
+    items.forEach((m, i) => {
+      const prev = items[i - 1];
+      if (!prev || prev.year !== m.year) {
+        html += `<div class="year-divider">${m.year}</div>`;
+      }
+      html += reelCard(m, true);
+    });
+    el.innerHTML = html;
+    setupEnglishReelDrag();
+
   } else if (tab === 'ec' || tab === 'personal') {
     const label   = tab === 'ec' ? 'ECリール' : '個人リール';
     const addBtn  = `<button class="content-add-btn" onclick="openAddReelModal('${tab}')">＋ ${label}追加</button>`;
@@ -863,6 +889,92 @@ function renderVideos() {
     });
     el.innerHTML = ecHtml;
   }
+}
+
+function reorderReels(srcId, tgtId) {
+  const si = state.reels.findIndex(r => r.id === srcId);
+  const ti = state.reels.findIndex(r => r.id === tgtId);
+  if (si === -1 || ti === -1 || si === ti) return;
+  if (state.reels[si].type !== state.reels[ti].type) return;
+  const [moved] = state.reels.splice(si, 1);
+  state.reels.splice(state.reels.findIndex(r => r.id === tgtId), 0, moved);
+  saveState();
+  renderVideos();
+}
+
+function setupEnglishReelDrag() {
+  const cards = () => document.querySelectorAll('.reel-month-card[data-reel-id]');
+  let dragSrc = null;
+  let longTimer = null, touchDragItem = null, touchClone = null, offX = 0, offY = 0;
+
+  cards().forEach(card => {
+    card.addEventListener('dragstart', e => {
+      dragSrc = card;
+      card.classList.add('is-dragging');
+      e.dataTransfer.effectAllowed = 'move';
+    });
+    card.addEventListener('dragend', () => {
+      card.classList.remove('is-dragging');
+      cards().forEach(c => c.classList.remove('drag-over'));
+      dragSrc = null;
+    });
+    card.addEventListener('dragover', e => {
+      if (!dragSrc || card === dragSrc) return;
+      e.preventDefault();
+      cards().forEach(c => c.classList.remove('drag-over'));
+      card.classList.add('drag-over');
+    });
+    card.addEventListener('drop', e => {
+      e.preventDefault();
+      if (!dragSrc || dragSrc === card) return;
+      reorderReels(dragSrc.dataset.reelId, card.dataset.reelId);
+    });
+
+    card.addEventListener('touchstart', e => {
+      const t = e.touches[0];
+      longTimer = setTimeout(() => {
+        touchDragItem = card;
+        card.classList.add('is-dragging');
+        const rect = card.getBoundingClientRect();
+        offX = t.clientX - rect.left; offY = t.clientY - rect.top;
+        touchClone = card.cloneNode(true);
+        touchClone.className += ' task-drag-clone';
+        touchClone.style.cssText += `;width:${rect.width}px;top:${rect.top}px;left:${rect.left}px;`;
+        document.body.appendChild(touchClone);
+        navigator.vibrate?.(30);
+      }, 500);
+    }, { passive: true });
+
+    card.addEventListener('touchmove', e => {
+      if (!touchDragItem) { clearTimeout(longTimer); return; }
+      e.preventDefault();
+      const t = e.touches[0];
+      if (touchClone) { touchClone.style.top = (t.clientY - offY) + 'px'; touchClone.style.left = (t.clientX - offX) + 'px'; }
+      cards().forEach(c => c.classList.remove('drag-over'));
+      for (const el of document.querySelectorAll('.reel-month-card[data-reel-id]:not(.is-dragging)')) {
+        const r = el.getBoundingClientRect();
+        if (t.clientY >= r.top && t.clientY <= r.bottom) { el.classList.add('drag-over'); break; }
+      }
+    }, { passive: false });
+
+    card.addEventListener('touchend', () => {
+      clearTimeout(longTimer);
+      if (!touchDragItem) return;
+      touchClone?.remove(); touchClone = null;
+      touchDragItem.classList.remove('is-dragging');
+      const target = document.querySelector('.reel-month-card[data-reel-id].drag-over');
+      if (target) reorderReels(touchDragItem.dataset.reelId, target.dataset.reelId);
+      touchDragItem = null;
+      cards().forEach(c => c.classList.remove('drag-over'));
+    }, { passive: true });
+
+    card.addEventListener('touchcancel', () => {
+      clearTimeout(longTimer);
+      touchClone?.remove(); touchClone = null;
+      if (touchDragItem) { touchDragItem.classList.remove('is-dragging'); touchDragItem = null; }
+      cards().forEach(c => c.classList.remove('drag-over'));
+    }, { passive: true });
+  });
 }
 
 // =============================================
@@ -1795,7 +1907,7 @@ function onDeleteLink() {
 // =============================================
 
 function openAddReelModal(type = 'monthly') {
-  const labels = { monthly: '月リール追加', ec: 'ECリール追加', personal: '個人リール追加' };
+  const labels = { monthly: '月リール追加', ec: 'ECリール追加', personal: '個人リール追加', english: '英語リール追加' };
   document.getElementById('reel-modal-title').textContent = labels[type] || '追加';
   document.getElementById('reel-mode').value     = 'add';
   document.getElementById('reel-type').value     = type;
@@ -1808,7 +1920,7 @@ function openAddReelModal(type = 'monthly') {
   document.getElementById('reel-title-2').value  = '';
   document.getElementById('reel-note-2').value   = '';
   document.getElementById('reel-gen-tasks').checked = true;
-  document.getElementById('reel-label-1').innerHTML = 'リール① タイトル <span class="required">*</span>';
+  document.getElementById('reel-label-1').innerHTML = 'タイトル <span class="required">*</span>';
 
   document.getElementById('reel-month-section').classList.remove('is-hidden');
   document.getElementById('delete-reel-btn').classList.add('is-hidden');
@@ -1817,14 +1929,15 @@ function openAddReelModal(type = 'monthly') {
   const isMonthly  = type === 'monthly';
   const isEc       = type === 'ec';
   const isPersonal = type === 'personal';
+  const isEnglish  = type === 'english';
 
   document.getElementById('reel-video2-section').classList.toggle('is-hidden', !isMonthly);
   document.getElementById('reel-task-gen-section').classList.toggle('is-hidden', !isMonthly);
   document.getElementById('reel-post-month-group').classList.toggle('is-hidden', !isMonthly);
   document.getElementById('reel-ec-note').classList.toggle('is-hidden', !isEc);
-  document.getElementById('reel-personal-store-section').classList.toggle('is-hidden', !isPersonal);
+  document.getElementById('reel-personal-store-section').classList.toggle('is-hidden', !(isPersonal || isEnglish));
 
-  if (isPersonal) {
+  if (isPersonal || isEnglish) {
     document.getElementById('store-check-grid').innerHTML = STORES.map(s =>
       `<label class="checkbox-label"><input type="checkbox" name="personal-store" value="${esc(s)}"> ${esc(s)}</label>`
     ).join('');
@@ -1935,6 +2048,18 @@ function onSaveReel(e) {
       });
       const count = selectedStores.length;
       showToast(count ? `個人リールを追加しました（${count}件のタスクを生成）` : '個人リールを追加しました');
+    } else if (type === 'english') {
+      const selectedStores = [...document.querySelectorAll('input[name="personal-store"]:checked')].map(cb => cb.value);
+      selectedStores.forEach(store => {
+        state.tasks.unshift({
+          id: uid(), title: `${store}●${title1}`, store,
+          platforms: [], status: 'ゆっきー',
+          notes: '',
+          createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
+        });
+      });
+      const count = selectedStores.length;
+      showToast(count ? `英語リールを追加しました（${count}件のタスクを生成）` : '英語リールを追加しました');
     } else {
       showToast('リールを追加しました');
     }

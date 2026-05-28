@@ -721,6 +721,8 @@ body {
 
 /* Reel month card (new table-style layout) */
 .reel-month-card { }
+.reel-month-card.is-dragging { opacity: 0.4; }
+.reel-month-card.drag-over { border-top: 2px solid var(--primary) !important; box-shadow: none !important; }
 
 .reel-month-header {
   display: flex; align-items: baseline; gap: 8px;
