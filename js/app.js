@@ -220,6 +220,8 @@ const state = {
   reels:                   [],
   notes:                   [],
   announcements:           [],
+  noteCategoryOrder:       [],
+  linkCategoryOrder:       [],
   activeTab:               'home',
   statusFilter:            '撮影中',
   videoSubTab:             'reels',
@@ -277,7 +279,9 @@ function loadState() {
       state.notes         = saved.notes  && saved.notes.length
         ? saved.notes.map(n => ({ category: 'メモ', ...n }))
         : initNotes();
-      state.announcements = saved.announcements || [];
+      state.announcements      = saved.announcements      || [];
+      state.noteCategoryOrder  = saved.noteCategoryOrder  || [];
+      state.linkCategoryOrder  = saved.linkCategoryOrder  || [];
     } else {
       state.reels = initReels();
       state.notes = initNotes();
@@ -291,11 +295,13 @@ function loadState() {
 function saveState() {
   try {
     localStorage.setItem('coinluck_v1', JSON.stringify({
-      tasks:         state.tasks,
-      links:         state.links,
-      reels:         state.reels,
-      notes:         state.notes,
-      announcements: state.announcements,
+      tasks:               state.tasks,
+      links:               state.links,
+      reels:               state.reels,
+      notes:               state.notes,
+      announcements:       state.announcements,
+      noteCategoryOrder:   state.noteCategoryOrder,
+      linkCategoryOrder:   state.linkCategoryOrder,
     }));
   } catch (_) {}
 }
@@ -306,6 +312,13 @@ function saveState() {
 
 function uid() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+}
+
+// Returns category array in saved order, with any new categories appended
+function getOrderedCats(existingCats, savedOrder) {
+  const result = (savedOrder || []).filter(c => existingCats.includes(c));
+  existingCats.forEach(c => { if (!result.includes(c)) result.push(c); });
+  return result;
 }
 
 function esc(str) {
@@ -1694,8 +1707,9 @@ function renderPosts() {
     }
   });
 
-  // Auto-fill Mon/Tue/Fri/Sat/Sun; Wed/Thu only when holiday or already has tasks
+  // Auto-fill Mon/Tue/Fri/Sat/Sun; Wed/Thu only when holiday; skip past empty days
   const DEFAULT_DAYS = new Set([0, 1, 2, 5, 6]); // Sun=0 Mon=1 Tue=2 Fri=5 Sat=6
+  const todayStr = toDateStrLocal(new Date());
   weekMap.forEach(wkData => {
     const monday = wkData.weekStart;
     for (let i = 0; i < 7; i++) {
@@ -1703,10 +1717,12 @@ function renderPosts() {
       d.setDate(monday.getDate() + i);
       const dateStr = toDateStrLocal(d);
       if (!wkData.dates.has(dateStr)) {
-        if (DEFAULT_DAYS.has(d.getDay()) || JP_HOLIDAYS[dateStr]) {
+        // Only auto-fill today or future empty days; past empty days stay hidden
+        if (dateStr >= todayStr && (DEFAULT_DAYS.has(d.getDay()) || JP_HOLIDAYS[dateStr])) {
           wkData.dates.set(dateStr, new Map());
         }
       }
+      // Days already in weekMap (have actual tasks) always show, even if past
     }
   });
 
@@ -1961,14 +1977,14 @@ function renderNotes() {
   const pinned   = state.notes.filter(n => n.pinned);
   const unpinned = state.notes.filter(n => !n.pinned);
 
-  // Group unpinned notes by category (preserve insertion order)
-  const catOrder = [];
-  const catMap   = {};
+  // Group unpinned notes by category, ordered by state.noteCategoryOrder
+  const catMap = {};
   unpinned.forEach(n => {
     const cat = n.category || 'メモ';
-    if (!catMap[cat]) { catMap[cat] = []; catOrder.push(cat); }
+    if (!catMap[cat]) catMap[cat] = [];
     catMap[cat].push(n);
   });
+  const catOrder = getOrderedCats(Object.keys(catMap), state.noteCategoryOrder);
 
   const noteHTML = (note) => `
     <div class="note-item${note.pinned ? ' is-pinned' : ''}" data-note-id="${note.id}" draggable="true">
@@ -1989,9 +2005,12 @@ function renderNotes() {
     html += `<div class="notes-section-label">📌 ピン留め</div>`;
     html += pinned.map(noteHTML).join('');
   }
-  catOrder.forEach(cat => {
-    html += `<div class="notes-section-label" style="margin-top:${pinned.length || html ? 8 : 0}px">${esc(cat)}</div>`;
-    html += `<div class="notes-drag-list" data-category="${esc(cat)}">${catMap[cat].map(noteHTML).join('')}</div>`;
+  catOrder.forEach((cat, idx) => {
+    const mt = (pinned.length || idx > 0) ? 8 : 0;
+    html += `<div class="notes-category-block" data-category="${esc(cat)}" style="margin-top:${mt}px">
+      <div class="notes-section-label"><span class="cat-drag-handle">⠿</span>${esc(cat)}</div>
+      <div class="notes-drag-list" data-category="${esc(cat)}">${catMap[cat].map(noteHTML).join('')}</div>
+    </div>`;
   });
   if (!catOrder.length && !pinned.length) {
     html += `<div class="empty-state"><span class="empty-icon">📓</span><div class="empty-label">ノートがありません</div></div>`;
@@ -1999,6 +2018,7 @@ function renderNotes() {
 
   el.innerHTML = html;
   setupNoteDrag();
+  setupNoteCategoryDrag();
 }
 
 
@@ -2090,6 +2110,118 @@ function reorderNotes(srcId, tgtId) {
   state.notes.splice(newTi, 0, moved);
   saveState();
   renderNotes();
+}
+
+function reorderNoteCategory(srcCat, tgtCat, before) {
+  if (srcCat === tgtCat) return;
+  const existingCats = [...new Set(state.notes.filter(n => !n.pinned).map(n => n.category || 'メモ'))];
+  const allCats = getOrderedCats(existingCats, state.noteCategoryOrder);
+  const srcIdx = allCats.indexOf(srcCat);
+  if (srcIdx !== -1) allCats.splice(srcIdx, 1);
+  let tgtIdx = allCats.indexOf(tgtCat);
+  if (!before) tgtIdx++;
+  allCats.splice(Math.max(0, tgtIdx), 0, srcCat);
+  state.noteCategoryOrder = allCats;
+  saveState();
+  renderNotes();
+}
+
+function setupNoteCategoryDrag() {
+  const container = document.getElementById('notes-content');
+  const allBlocks = () => Array.from(container.querySelectorAll('.notes-category-block'));
+  let dragSrc = null;
+  let longTimer = null, touchDragBlock = null, touchClone = null, offY = 0;
+
+  allBlocks().forEach(block => {
+    const handle = block.querySelector('.cat-drag-handle');
+    if (!handle) return;
+
+    // Desktop: enable draggable only while handle is held
+    handle.addEventListener('mousedown', () => { block.draggable = true; });
+    handle.addEventListener('mouseup',   () => { setTimeout(() => { block.draggable = false; }, 0); });
+
+    block.addEventListener('dragstart', e => {
+      dragSrc = block;
+      block.classList.add('is-dragging');
+      e.dataTransfer.effectAllowed = 'move';
+      e.stopPropagation();
+    });
+    block.addEventListener('dragend', () => {
+      block.draggable = false;
+      block.classList.remove('is-dragging');
+      allBlocks().forEach(b => b.classList.remove('drag-over-top', 'drag-over-bot'));
+      dragSrc = null;
+    });
+    block.addEventListener('dragover', e => {
+      if (!dragSrc || dragSrc === block) return;
+      e.preventDefault();
+      e.stopPropagation();
+      allBlocks().forEach(b => b.classList.remove('drag-over-top', 'drag-over-bot'));
+      const rect = block.getBoundingClientRect();
+      block.classList.add(e.clientY < rect.top + rect.height / 2 ? 'drag-over-top' : 'drag-over-bot');
+    });
+    block.addEventListener('drop', e => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (!dragSrc || dragSrc === block) return;
+      const rect = block.getBoundingClientRect();
+      reorderNoteCategory(dragSrc.dataset.category, block.dataset.category, e.clientY < rect.top + rect.height / 2);
+    });
+
+    // Touch: long press on handle
+    handle.addEventListener('touchstart', e => {
+      const t = e.touches[0];
+      longTimer = setTimeout(() => {
+        touchDragBlock = block;
+        block.classList.add('is-dragging');
+        const rect = block.getBoundingClientRect();
+        offY = t.clientY - rect.top;
+        touchClone = block.cloneNode(true);
+        touchClone.style.cssText = `position:fixed;z-index:500;opacity:0.9;pointer-events:none;width:${rect.width}px;top:${rect.top}px;left:${rect.left}px;box-shadow:0 6px 20px rgba(42,36,32,0.18);border-radius:8px;background:var(--card);`;
+        document.body.appendChild(touchClone);
+        navigator.vibrate?.(30);
+      }, 500);
+    }, { passive: true });
+
+    handle.addEventListener('touchmove', e => {
+      if (!touchDragBlock) { clearTimeout(longTimer); return; }
+      e.preventDefault();
+      const t = e.touches[0];
+      if (touchClone) touchClone.style.top = (t.clientY - offY) + 'px';
+      allBlocks().forEach(b => b.classList.remove('drag-over-top', 'drag-over-bot'));
+      for (const b of allBlocks()) {
+        if (b === touchDragBlock) continue;
+        const r = b.getBoundingClientRect();
+        if (t.clientY >= r.top && t.clientY <= r.bottom) {
+          b.classList.add(t.clientY < r.top + r.height / 2 ? 'drag-over-top' : 'drag-over-bot');
+          break;
+        }
+      }
+    }, { passive: false });
+
+    handle.addEventListener('touchend', () => {
+      clearTimeout(longTimer);
+      if (!touchDragBlock) return;
+      touchClone?.remove(); touchClone = null;
+      touchDragBlock.classList.remove('is-dragging');
+      const target = container.querySelector('.notes-category-block.drag-over-top, .notes-category-block.drag-over-bot');
+      if (target) {
+        reorderNoteCategory(
+          touchDragBlock.dataset.category, target.dataset.category,
+          target.classList.contains('drag-over-top')
+        );
+      }
+      allBlocks().forEach(b => b.classList.remove('drag-over-top', 'drag-over-bot'));
+      touchDragBlock = null;
+    }, { passive: true });
+
+    handle.addEventListener('touchcancel', () => {
+      clearTimeout(longTimer);
+      touchClone?.remove(); touchClone = null;
+      if (touchDragBlock) { touchDragBlock.classList.remove('is-dragging'); touchDragBlock = null; }
+      allBlocks().forEach(b => b.classList.remove('drag-over-top', 'drag-over-bot'));
+    }, { passive: true });
+  });
 }
 
 function quickDeleteNote(id) {
@@ -2202,18 +2334,18 @@ function renderLinks() {
     return;
   }
 
-  // Preserve category insertion order
-  const catOrder = [];
-  const catMap   = {};
+  // Build category map ordered by state.linkCategoryOrder
+  const catMap = {};
   state.links.forEach(link => {
     const c = link.category || 'その他';
-    if (!catMap[c]) { catMap[c] = []; catOrder.push(c); }
+    if (!catMap[c]) catMap[c] = [];
     catMap[c].push(link);
   });
+  const catOrder = getOrderedCats(Object.keys(catMap), state.linkCategoryOrder);
 
   el.innerHTML = catOrder.map(cat => `
     <div class="link-category-group" data-category="${esc(cat)}">
-      <div class="link-cat-title">${esc(cat)}</div>
+      <div class="link-cat-title"><span class="cat-drag-handle">⠿</span>${esc(cat)}</div>
       ${catMap[cat].map(link => `
         <div class="link-item" data-link-id="${link.id}" draggable="true">
           <div class="link-drag-handle">⠿</div>
@@ -2228,6 +2360,118 @@ function renderLinks() {
     </div>`).join('');
 
   setupLinksDrag();
+  setupLinkCategoryDrag();
+}
+
+function reorderLinkCategory(srcCat, tgtCat, before) {
+  if (srcCat === tgtCat) return;
+  const existingCats = [...new Set(state.links.map(l => l.category || 'その他'))];
+  const allCats = getOrderedCats(existingCats, state.linkCategoryOrder);
+  const srcIdx = allCats.indexOf(srcCat);
+  if (srcIdx !== -1) allCats.splice(srcIdx, 1);
+  let tgtIdx = allCats.indexOf(tgtCat);
+  if (!before) tgtIdx++;
+  allCats.splice(Math.max(0, tgtIdx), 0, srcCat);
+  state.linkCategoryOrder = allCats;
+  saveState();
+  renderLinks();
+}
+
+function setupLinkCategoryDrag() {
+  const container = document.getElementById('links-content');
+  const allGroups = () => Array.from(container.querySelectorAll('.link-category-group'));
+  let dragSrc = null;
+  let longTimer = null, touchDragGroup = null, touchClone = null, offY = 0;
+
+  allGroups().forEach(group => {
+    const handle = group.querySelector('.link-cat-title .cat-drag-handle');
+    if (!handle) return;
+
+    handle.addEventListener('mousedown', () => { group.draggable = true; });
+    handle.addEventListener('mouseup',   () => { setTimeout(() => { group.draggable = false; }, 0); });
+
+    group.addEventListener('dragstart', e => {
+      dragSrc = group;
+      group.classList.add('is-dragging');
+      e.dataTransfer.effectAllowed = 'move';
+      e.stopPropagation();
+    });
+    group.addEventListener('dragend', () => {
+      group.draggable = false;
+      group.classList.remove('is-dragging');
+      allGroups().forEach(g => g.classList.remove('drag-over-top', 'drag-over-bot'));
+      dragSrc = null;
+    });
+    group.addEventListener('dragover', e => {
+      if (!dragSrc || dragSrc === group) return;
+      e.preventDefault();
+      e.stopPropagation();
+      allGroups().forEach(g => g.classList.remove('drag-over-top', 'drag-over-bot'));
+      const rect = group.getBoundingClientRect();
+      group.classList.add(e.clientY < rect.top + rect.height / 2 ? 'drag-over-top' : 'drag-over-bot');
+    });
+    group.addEventListener('drop', e => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (!dragSrc || dragSrc === group) return;
+      const rect = group.getBoundingClientRect();
+      reorderLinkCategory(dragSrc.dataset.category, group.dataset.category, e.clientY < rect.top + rect.height / 2);
+    });
+
+    // Touch: long press on handle
+    handle.addEventListener('touchstart', e => {
+      const t = e.touches[0];
+      longTimer = setTimeout(() => {
+        touchDragGroup = group;
+        group.classList.add('is-dragging');
+        const rect = group.getBoundingClientRect();
+        offY = t.clientY - rect.top;
+        touchClone = group.cloneNode(true);
+        touchClone.style.cssText = `position:fixed;z-index:500;opacity:0.9;pointer-events:none;width:${rect.width}px;top:${rect.top}px;left:${rect.left}px;box-shadow:0 6px 20px rgba(42,36,32,0.18);border-radius:8px;background:var(--card);`;
+        document.body.appendChild(touchClone);
+        navigator.vibrate?.(30);
+      }, 500);
+    }, { passive: true });
+
+    handle.addEventListener('touchmove', e => {
+      if (!touchDragGroup) { clearTimeout(longTimer); return; }
+      e.preventDefault();
+      const t = e.touches[0];
+      if (touchClone) touchClone.style.top = (t.clientY - offY) + 'px';
+      allGroups().forEach(g => g.classList.remove('drag-over-top', 'drag-over-bot'));
+      for (const g of allGroups()) {
+        if (g === touchDragGroup) continue;
+        const r = g.getBoundingClientRect();
+        if (t.clientY >= r.top && t.clientY <= r.bottom) {
+          g.classList.add(t.clientY < r.top + r.height / 2 ? 'drag-over-top' : 'drag-over-bot');
+          break;
+        }
+      }
+    }, { passive: false });
+
+    handle.addEventListener('touchend', () => {
+      clearTimeout(longTimer);
+      if (!touchDragGroup) return;
+      touchClone?.remove(); touchClone = null;
+      touchDragGroup.classList.remove('is-dragging');
+      const target = container.querySelector('.link-category-group.drag-over-top, .link-category-group.drag-over-bot');
+      if (target) {
+        reorderLinkCategory(
+          touchDragGroup.dataset.category, target.dataset.category,
+          target.classList.contains('drag-over-top')
+        );
+      }
+      allGroups().forEach(g => g.classList.remove('drag-over-top', 'drag-over-bot'));
+      touchDragGroup = null;
+    }, { passive: true });
+
+    handle.addEventListener('touchcancel', () => {
+      clearTimeout(longTimer);
+      touchClone?.remove(); touchClone = null;
+      if (touchDragGroup) { touchDragGroup.classList.remove('is-dragging'); touchDragGroup = null; }
+      allGroups().forEach(g => g.classList.remove('drag-over-top', 'drag-over-bot'));
+    }, { passive: true });
+  });
 }
 
 function reorderLinks(srcId, tgtId) {
