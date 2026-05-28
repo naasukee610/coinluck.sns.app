@@ -629,11 +629,11 @@ function renderStatusCategoryView(list, el) {
   const categories = STATUS_CATEGORIES[state.statusFilter] || [];
   const byCat = new Map();
   categories.forEach(c => byCat.set(c, []));
-  const uncategorized = [];
+  const firstCat = categories[0];
 
   list.forEach(task => {
-    if (task.category && byCat.has(task.category)) byCat.get(task.category).push(task);
-    else uncategorized.push(task);
+    const cat = (task.category && byCat.has(task.category)) ? task.category : firstCat;
+    byCat.get(cat)?.push(task);
   });
 
   function catCardHtml(task) {
@@ -641,6 +641,12 @@ function renderStatusCategoryView(list, el) {
     if (state.statusFilter === 'ゆっきー') {
       advBtns = `<button class="advance-btn" onclick="advanceTaskTo('${task.id}','せい');event.stopPropagation()">→ せい</button>
                  <button class="advance-btn" onclick="advanceTaskTo('${task.id}','ともちん');event.stopPropagation()">→ ともちん</button>`;
+    } else if (state.statusFilter === 'せい') {
+      advBtns = `<button class="advance-btn" onclick="advanceTaskTo('${task.id}','ゆっきー');event.stopPropagation()">→ ゆっきー</button>
+                 <button class="advance-btn" onclick="advanceTaskTo('${task.id}','ともちん');event.stopPropagation()">→ ともちん</button>`;
+    } else if (state.statusFilter === 'ともちん') {
+      advBtns = `<button class="advance-btn" onclick="advanceTaskTo('${task.id}','投稿');event.stopPropagation()">→ 投稿</button>
+                 <button class="advance-btn" onclick="openCategoryModal('${task.id}','ゆっきー');event.stopPropagation()">→ ゆっきー</button>`;
     } else {
       const next = getNextStatus(state.statusFilter);
       if (next) advBtns = `<button class="advance-btn" onclick="advanceTaskTo('${task.id}','${esc(next)}');event.stopPropagation()">→ ${esc(next)}</button>`;
@@ -659,13 +665,6 @@ function renderStatusCategoryView(list, el) {
       <div class="sp-cards">${tasks.map(catCardHtml).join('')}</div>
     </div>`;
   });
-
-  if (uncategorized.length) {
-    html += `<div class="sp-section" data-category="__none__">
-      <div class="sp-label">未分類</div>
-      <div class="sp-cards">${uncategorized.map(catCardHtml).join('')}</div>
-    </div>`;
-  }
 
   el.innerHTML = html;
   setupStatusCategoryDrag();
@@ -838,7 +837,7 @@ function handleCategoryDrop(taskId, fromCat, toCat, insertBeforeTaskId) {
   if (changed) { saveState(); refreshCurrentTab(); }
 }
 
-function advanceTaskTo(id, targetStatus) {
+function advanceTaskTo(id, targetStatus, overrideCategory = null) {
   const task = state.tasks.find(t => t.id === id);
   if (!task) return;
 
@@ -881,7 +880,7 @@ function advanceTaskTo(id, targetStatus) {
   const prevUpdated  = task.updatedAt;
   const prevCategory = task.category;
   task.status    = targetStatus;
-  task.category  = STATUS_CATEGORIES[targetStatus]?.[0] ?? null;
+  task.category  = overrideCategory ?? STATUS_CATEGORIES[targetStatus]?.[0] ?? null;
   task.updatedAt = new Date().toISOString();
   if (state.activeTab === 'status') state.statusFilter = targetStatus;
   saveState();
@@ -1174,6 +1173,35 @@ function setupStatusPlatformDrag() {
       clearOver(); dragTaskId = null;
     }, { passive: true });
   });
+}
+
+function openCategoryModal(taskId, targetStatus) {
+  const cats = STATUS_CATEGORIES[targetStatus] || [];
+  const el = document.createElement('div');
+  el.className = 'modal';
+  el.id = 'cat-select-modal';
+  el.innerHTML = `
+    <div class="modal-backdrop"></div>
+    <div class="modal-sheet cat-select-sheet">
+      <div class="cat-select-inner">
+        <div class="cat-select-heading">カテゴリーを選択</div>
+        <div class="cat-select-btns">
+          ${cats.map(cat => `<button class="cat-select-btn" onclick="selectCategoryAndAdvance('${taskId}','${targetStatus}','${esc(cat)}')">${esc(cat)}</button>`).join('')}
+        </div>
+        <button class="cat-select-cancel" onclick="closeCategoryModal()">キャンセル</button>
+      </div>
+    </div>`;
+  document.body.appendChild(el);
+  el.querySelector('.modal-backdrop').addEventListener('click', closeCategoryModal);
+}
+
+function closeCategoryModal() {
+  document.getElementById('cat-select-modal')?.remove();
+}
+
+function selectCategoryAndAdvance(taskId, targetStatus, category) {
+  closeCategoryModal();
+  advanceTaskTo(taskId, targetStatus, category);
 }
 
 function changeTaskStatus(id, newStatus) {
@@ -2200,7 +2228,8 @@ function onSaveTask(e) {
     if (i !== -1) state.tasks[i] = { ...state.tasks[i], ...data };
     showToast('タスクを更新しました');
   } else {
-    state.tasks.unshift({ id: uid(), createdAt: new Date().toISOString(), ...data });
+    const defaultCat = STATUS_CATEGORIES[status]?.[0] ?? null;
+    state.tasks.unshift({ id: uid(), createdAt: new Date().toISOString(), category: defaultCat, ...data });
     showToast('タスクを追加しました');
   }
 

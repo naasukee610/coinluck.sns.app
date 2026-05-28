@@ -997,6 +997,66 @@ body {
 .nav-add-icon { font-size: 1.6rem; line-height: 1; color: #fff; }
 
 /* =============================================
+   CATEGORY SELECT MODAL
+   ============================================= */
+
+.cat-select-sheet {
+  max-width: 320px;
+  border-radius: 16px !important;
+}
+
+.cat-select-inner {
+  padding: 24px 20px 16px;
+}
+
+.cat-select-heading {
+  font-size: 0.95rem;
+  font-weight: 700;
+  text-align: center;
+  margin-bottom: 18px;
+  color: var(--text);
+}
+
+.cat-select-btns {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  margin-bottom: 14px;
+}
+
+.cat-select-btn {
+  width: 100%;
+  background: var(--card-soft);
+  border: 1.5px solid var(--border);
+  border-radius: var(--r-sm);
+  padding: 13px;
+  font-family: inherit;
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: var(--text);
+  cursor: pointer;
+  transition: background 0.1s, border-color 0.1s;
+}
+.cat-select-btn:hover, .cat-select-btn:active {
+  background: var(--primary-lt);
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.cat-select-cancel {
+  display: block;
+  width: 100%;
+  background: none;
+  border: none;
+  font-family: inherit;
+  font-size: 0.8rem;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 8px;
+  text-align: center;
+}
+
+/* =============================================
    MODAL
    ============================================= */
 
