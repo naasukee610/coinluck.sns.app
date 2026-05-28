@@ -1754,6 +1754,7 @@ function renderNotes() {
     <div class="note-item${note.pinned ? ' is-pinned' : ''}" data-note-id="${note.id}" draggable="true">
       <div class="note-drag-handle">⠿</div>
       <div class="note-body" onclick="openEditNote('${note.id}')">
+        ${note.label ? `<div class="note-label">${esc(note.label)}</div>` : ''}
         <div class="note-content">${esc(note.content)}</div>
       </div>
       <button class="note-pin-btn"
@@ -1905,6 +1906,7 @@ function openAddNote() {
   document.getElementById('note-modal-title').textContent = 'ノート追加';
   document.getElementById('note-id').value       = '';
   document.getElementById('note-category').value = '';
+  document.getElementById('note-label').value    = '';
   document.getElementById('note-content').value  = '';
   document.getElementById('note-pinned').checked = false;
   document.getElementById('delete-note-btn').classList.add('is-hidden');
@@ -1920,6 +1922,7 @@ function openEditNote(id) {
   document.getElementById('note-modal-title').textContent = 'ノート編集';
   document.getElementById('note-id').value       = id;
   document.getElementById('note-category').value = note.category || '';
+  document.getElementById('note-label').value    = note.label || '';
   document.getElementById('note-content').value  = note.content;
   document.getElementById('note-pinned').checked = note.pinned;
   document.getElementById('delete-note-btn').classList.remove('is-hidden');
@@ -1938,13 +1941,14 @@ function onSaveNote(e) {
   if (!content) return;
   const pinned   = document.getElementById('note-pinned').checked;
   const category = document.getElementById('note-category').value.trim() || 'メモ';
+  const label    = document.getElementById('note-label').value.trim();
 
   if (state.editingNoteId) {
     const note = state.notes.find(n => n.id === state.editingNoteId);
-    if (note) { note.content = content; note.pinned = pinned; note.category = category; }
+    if (note) { note.content = content; note.pinned = pinned; note.category = category; note.label = label; }
     showToast('ノートを更新しました');
   } else {
-    state.notes.push({ id: uid(), content, pinned, category, createdAt: new Date().toISOString() });
+    state.notes.push({ id: uid(), content, pinned, category, label, createdAt: new Date().toISOString() });
     showToast('ノートを追加しました');
   }
   saveState();

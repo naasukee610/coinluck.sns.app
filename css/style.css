@@ -506,6 +506,12 @@ body {
 .note-body {
   flex: 1; min-width: 0; cursor: pointer;
 }
+.note-label {
+  font-size: 0.85rem; font-weight: 700;
+  color: var(--text);
+  margin-bottom: 2px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
 .note-content {
   font-size: 0.84rem; line-height: 1.55;
   display: -webkit-box;
