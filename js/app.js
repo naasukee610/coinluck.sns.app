@@ -2052,7 +2052,7 @@ function onSaveReel(e) {
       const selectedStores = [...document.querySelectorAll('input[name="personal-store"]:checked')].map(cb => cb.value);
       selectedStores.forEach(store => {
         state.tasks.unshift({
-          id: uid(), title: `${store}●${title1}`, store,
+          id: uid(), title: `英語●${store}${title1}`, store,
           platforms: [], status: 'ゆっきー',
           notes: '',
           createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
