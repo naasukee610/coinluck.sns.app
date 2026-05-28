@@ -1812,3 +1812,15 @@ function init() {
 }
 
 document.addEventListener('DOMContentLoaded', init);
+
+// iOS Safari ignores user-scalable=no in viewport meta — prevent pinch/double-tap zoom via JS
+document.addEventListener('touchstart', e => {
+  if (e.touches.length > 1) e.preventDefault();
+}, { passive: false });
+
+let _lastTap = 0;
+document.addEventListener('touchend', e => {
+  const now = Date.now();
+  if (now - _lastTap < 300) e.preventDefault();
+  _lastTap = now;
+}, { passive: false });
