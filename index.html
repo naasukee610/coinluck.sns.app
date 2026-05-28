@@ -18,7 +18,7 @@
   <!-- ===== SIDEBAR (desktop) ===== -->
   <aside class="sidebar">
     <div class="sidebar-logo">
-      <span class="sidebar-coin">🪙</span>
+      <img src="images/rack-kun.png" class="sidebar-logo-img" alt="ラックくん">
       <div>
         <div class="sidebar-title">COIN LUCK</div>
         <div class="sidebar-sub">SNS運用管理</div>
@@ -26,11 +26,11 @@
     </div>
     <nav class="sidebar-nav">
       <button class="sidebar-btn active" data-page="home">🏠 HOME</button>
-      <button class="sidebar-btn" data-page="status">📋 ステータス</button>
-      <button class="sidebar-btn" data-page="posts">📱 投稿リスト</button>
-      <button class="sidebar-btn" data-page="videos">🎬 動画リスト</button>
-      <button class="sidebar-btn" data-page="notes">📓 ノート</button>
-      <button class="sidebar-btn" data-page="links">🔗 リンク集</button>
+      <button class="sidebar-btn" data-page="status">🌳 タスク</button>
+      <button class="sidebar-btn" data-page="posts">📌 投稿リスト</button>
+      <button class="sidebar-btn" data-page="videos">🎞️ 動画リスト</button>
+      <button class="sidebar-btn" data-page="notes">📖 ノート</button>
+      <button class="sidebar-btn" data-page="links">✏️ リンク集</button>
     </nav>
     <button class="sidebar-add-btn" id="sidebar-add-btn">＋ タスク追加</button>
   </aside>
@@ -42,7 +42,7 @@
     <div id="page-home" class="page active">
       <header class="page-header">
         <div class="logo-area">
-          <span class="header-coin">🪙</span>
+          <img src="images/rack-kun.png" class="header-logo-img" alt="ラックくん">
           <div>
             <h1 class="header-title">COIN LUCK</h1>
             <p class="header-sub">SNS運用管理</p>
@@ -56,7 +56,7 @@
     <!-- STATUS -->
     <div id="page-status" class="page">
       <header class="page-header page-header--simple">
-        <h2>📋 タスクステータス</h2>
+        <h2>🌳 タスク</h2>
       </header>
       <div class="filter-bar" id="status-filters"></div>
       <div class="page-content" id="status-content"></div>
@@ -65,7 +65,7 @@
     <!-- POSTS -->
     <div id="page-posts" class="page">
       <header class="page-header page-header--simple">
-        <h2>📱 投稿リスト</h2>
+        <h2>📌 投稿リスト</h2>
       </header>
       <div class="page-content" id="posts-content"></div>
     </div>
@@ -73,7 +73,7 @@
     <!-- VIDEOS -->
     <div id="page-videos" class="page">
       <header class="page-header page-header--simple">
-        <h2>🎬 動画リスト</h2>
+        <h2>🎞️ 動画リスト</h2>
       </header>
       <div class="tab-bar" id="video-tabs">
         <button class="tab-btn active" data-target="reels">月リール</button>
@@ -87,7 +87,7 @@
     <!-- NOTES -->
     <div id="page-notes" class="page">
       <header class="page-header page-header--simple">
-        <h2>📓 ノート</h2>
+        <h2>📖 ノート</h2>
         <button class="header-btn" id="add-note-btn">＋ 追加</button>
       </header>
       <div class="page-content" id="notes-content"></div>
@@ -96,7 +96,7 @@
     <!-- LINKS -->
     <div id="page-links" class="page">
       <header class="page-header page-header--simple">
-        <h2>🔗 リンク・コピペ集</h2>
+        <h2>✏️ リンク・コピペ集</h2>
         <button class="header-btn" id="add-link-btn">＋ 追加</button>
       </header>
       <div class="page-content" id="links-content"></div>
@@ -112,26 +112,26 @@
       <span class="nav-label">HOME</span>
     </button>
     <button class="nav-btn" data-page="status">
-      <span class="nav-icon">📋</span>
-      <span class="nav-label">ステータス</span>
+      <span class="nav-icon">🌳</span>
+      <span class="nav-label">タスク</span>
     </button>
     <button class="nav-btn" data-page="posts">
-      <span class="nav-icon">📱</span>
+      <span class="nav-icon">📌</span>
       <span class="nav-label">投稿</span>
     </button>
     <button class="nav-btn nav-add-btn" id="open-add-modal">
       <span class="nav-add-icon">＋</span>
     </button>
     <button class="nav-btn" data-page="videos">
-      <span class="nav-icon">🎬</span>
+      <span class="nav-icon">🎞️</span>
       <span class="nav-label">動画</span>
     </button>
     <button class="nav-btn" data-page="notes">
-      <span class="nav-icon">📓</span>
+      <span class="nav-icon">📖</span>
       <span class="nav-label">ノート</span>
     </button>
     <button class="nav-btn" data-page="links">
-      <span class="nav-icon">🔗</span>
+      <span class="nav-icon">✏️</span>
       <span class="nav-label">リンク</span>
     </button>
   </nav>

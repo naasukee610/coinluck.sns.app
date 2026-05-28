@@ -98,7 +98,10 @@ body {
   border-bottom: 1px solid var(--border);
   margin-bottom: 20px;
 }
-.sidebar-coin { font-size: 1.6rem; }
+.sidebar-logo-img {
+  width: 40px; height: 40px;
+  object-fit: contain; flex-shrink: 0;
+}
 .sidebar-title { font-size: 0.95rem; font-weight: 900; color: var(--primary); letter-spacing: -0.3px; }
 .sidebar-sub   { font-size: 0.65rem; color: var(--muted); margin-top: 1px; }
 
@@ -187,7 +190,10 @@ body {
 .logo-area {
   display: flex; align-items: center; gap: 10px;
 }
-.header-coin { font-size: 1.5rem; }
+.header-logo-img {
+  width: 36px; height: 36px;
+  object-fit: contain; flex-shrink: 0;
+}
 .header-title { font-size: 1.1rem; font-weight: 900; color: var(--primary); letter-spacing: -0.3px; }
 .header-sub   { font-size: 0.65rem; color: var(--muted); }
 .date-area    { font-size: 0.82rem; color: var(--muted); align-self: center; }
