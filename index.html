@@ -373,38 +373,6 @@
     </div>
   </div>
 
-  <!-- ===== MEETING NOTE MODAL ===== -->
-  <div id="meeting-modal" class="modal is-hidden">
-    <div class="modal-backdrop" id="meeting-modal-backdrop"></div>
-    <div class="modal-sheet">
-      <div class="modal-handle"></div>
-      <div class="modal-header">
-        <h3 id="meeting-modal-title">ミーティングノート追加</h3>
-        <button class="modal-close-btn" id="close-meeting-modal">✕</button>
-      </div>
-      <div class="modal-body">
-        <form id="meeting-note-form" autocomplete="off">
-          <div class="form-group">
-            <label for="mn-date">ミーティング日 <span class="required">*</span></label>
-            <input type="text" id="mn-date" placeholder="例：5月26日" required>
-          </div>
-          <div class="form-group">
-            <label for="mn-url">Notion URL <span class="required">*</span></label>
-            <input type="url" id="mn-url" placeholder="https://notion.so/..." required>
-          </div>
-          <div class="form-group">
-            <label for="mn-description">説明（任意）</label>
-            <input type="text" id="mn-description" placeholder="例：週次定例、企画会議">
-          </div>
-          <div class="form-actions">
-            <button type="button" class="btn-danger is-hidden" id="delete-meeting-btn">削除</button>
-            <button type="submit" class="btn-primary">保存</button>
-          </div>
-        </form>
-      </div>
-    </div>
-  </div>
-
   <!-- ===== TOAST ===== -->
   <div id="toast" class="toast is-hidden"></div>
 

@@ -145,7 +145,6 @@ const state = {
   reels:                   [],
   notes:                   [],
   announcements:           [],
-  meetingNotes:            [],
   activeTab:               'home',
   statusFilter:            '撮影中',
   videoSubTab:             'reels',
@@ -153,7 +152,6 @@ const state = {
   editingLinkId:           null,
   editingNoteId:           null,
   editingAnnounceId:       null,
-  editingMeetingNoteId:    null,
 };
 
 // drag state shared between desktop and touch handlers
@@ -205,7 +203,6 @@ function loadState() {
         ? saved.notes.map(n => ({ category: 'メモ', ...n }))
         : initNotes();
       state.announcements = saved.announcements || [];
-      state.meetingNotes  = saved.meetingNotes  || [];
     } else {
       state.reels = initReels();
       state.notes = initNotes();
@@ -224,7 +221,6 @@ function saveState() {
       reels:         state.reels,
       notes:         state.notes,
       announcements: state.announcements,
-      meetingNotes:  state.meetingNotes,
     }));
   } catch (_) {}
 }
@@ -1835,34 +1831,20 @@ function setupPostsDrag() {
 // NOTES PAGE
 // =============================================
 
+const MEETING_NOTION_URL = 'https://www.notion.so/SNS-1a7a44a2d30280f5aef1c6b78e4d25da';
+
 function buildMeetingSection() {
-  let html = `<div class="meeting-notes-section">
-    <div class="meeting-section-header">
-      <span class="meeting-section-title">📋 ミーティングノート</span>
-      <button class="header-btn header-btn--sm" onclick="openAddMeetingNote()">＋ 追加</button>
-    </div>`;
-
-  const valid = state.meetingNotes.filter(mn => mn.url);
-  if (!valid.length) {
-    html += `<p class="meeting-notes-empty">Notionのリンクがまだありません</p>`;
-  } else {
-    valid.forEach(mn => {
-      html += `<div class="mn-item">
-        <div class="mn-icon">📅</div>
-        <div class="mn-info" onclick="openEditMeetingNote('${mn.id}')">
-          <div class="mn-date">${esc(mn.date)}</div>
-          ${mn.description ? `<div class="mn-desc">${esc(mn.description)}</div>` : ''}
-        </div>
-        <a class="mn-open-btn" href="${esc(mn.url)}" target="_blank" rel="noopener noreferrer"
-           onclick="event.stopPropagation()">開く</a>
-        <button class="mn-del-btn" title="削除"
-          onclick="quickDeleteMeetingNote('${mn.id}');event.stopPropagation()">🗑️</button>
-      </div>`;
-    });
-  }
-
-  html += `</div><div class="notes-section-divider"></div>`;
-  return html;
+  return `<div class="meeting-notes-section">
+    <div class="meeting-section-title">📋 ミーティングノート</div>
+    <a class="mn-item mn-item--link" href="${MEETING_NOTION_URL}" target="_blank" rel="noopener noreferrer">
+      <div class="mn-icon">📝</div>
+      <div class="mn-info">
+        <div class="mn-date">ミーティングノート（Notion）</div>
+        <div class="mn-desc">タップして開く</div>
+      </div>
+      <span class="mn-open-btn">開く</span>
+    </a>
+  </div><div class="notes-section-divider"></div>`;
 }
 
 function renderNotes() {
@@ -1924,78 +1906,6 @@ function renderNotes() {
   setupNoteDrag();
 }
 
-// =============================================
-// MEETING NOTES
-// =============================================
-
-function openAddMeetingNote() {
-  state.editingMeetingNoteId = null;
-  document.getElementById('meeting-modal-title').textContent = 'ミーティングノート追加';
-  document.getElementById('mn-date').value        = '';
-  document.getElementById('mn-url').value         = '';
-  document.getElementById('mn-description').value = '';
-  document.getElementById('delete-meeting-btn').classList.add('is-hidden');
-  document.getElementById('meeting-modal').classList.remove('is-hidden');
-  document.getElementById('mn-date').focus();
-}
-
-function openEditMeetingNote(id) {
-  const mn = state.meetingNotes.find(n => n.id === id);
-  if (!mn) return;
-  state.editingMeetingNoteId = id;
-  document.getElementById('meeting-modal-title').textContent = 'ミーティングノート編集';
-  document.getElementById('mn-date').value        = mn.date        || '';
-  document.getElementById('mn-url').value         = mn.url         || '';
-  document.getElementById('mn-description').value = mn.description || '';
-  document.getElementById('delete-meeting-btn').classList.remove('is-hidden');
-  document.getElementById('meeting-modal').classList.remove('is-hidden');
-}
-
-function closeMeetingNoteModal() {
-  document.getElementById('meeting-modal').classList.add('is-hidden');
-  state.editingMeetingNoteId = null;
-}
-
-function onSaveMeetingNote(e) {
-  e.preventDefault();
-  const date        = document.getElementById('mn-date').value.trim();
-  const url         = document.getElementById('mn-url').value.trim();
-  const description = document.getElementById('mn-description').value.trim();
-  if (!date || !url) return;
-
-  if (state.editingMeetingNoteId) {
-    const mn = state.meetingNotes.find(n => n.id === state.editingMeetingNoteId);
-    if (mn) { mn.date = date; mn.url = url; mn.description = description; }
-    showToast('ミーティングノートを更新しました');
-  } else {
-    state.meetingNotes.push({ id: uid(), date, url, description, createdAt: new Date().toISOString() });
-    showToast('ミーティングノートを追加しました');
-  }
-  saveState();
-  closeMeetingNoteModal();
-  renderNotes();
-}
-
-function onDeleteMeetingNote() {
-  if (!confirm('このミーティングノートを削除しますか？')) return;
-  state.meetingNotes = state.meetingNotes.filter(n => n.id !== state.editingMeetingNoteId);
-  saveState();
-  closeMeetingNoteModal();
-  renderNotes();
-  showToast('ミーティングノートを削除しました');
-}
-
-function quickDeleteMeetingNote(id) {
-  const mn = state.meetingNotes.find(n => n.id === id);
-  if (!mn) return;
-  state.meetingNotes = state.meetingNotes.filter(n => n.id !== id);
-  saveState();
-  renderNotes();
-  showToast('削除しました', () => {
-    state.meetingNotes.push(mn);
-    saveState(); renderNotes();
-  });
-}
 
 function setupNoteDrag() {
   document.querySelectorAll('.notes-drag-list').forEach(list => {
@@ -2867,12 +2777,6 @@ function setupEvents() {
   document.getElementById('note-modal-backdrop').addEventListener('click', closeNoteModal);
   document.getElementById('note-form').addEventListener('submit', onSaveNote);
   document.getElementById('delete-note-btn').addEventListener('click', onDeleteNote);
-
-  // Meeting note modal
-  document.getElementById('close-meeting-modal').addEventListener('click', closeMeetingNoteModal);
-  document.getElementById('meeting-modal-backdrop').addEventListener('click', closeMeetingNoteModal);
-  document.getElementById('meeting-note-form').addEventListener('submit', onSaveMeetingNote);
-  document.getElementById('delete-meeting-btn').addEventListener('click', onDeleteMeetingNote);
 
   // Announce modal
   document.getElementById('close-announce-modal').addEventListener('click', closeAnnounceModal);
