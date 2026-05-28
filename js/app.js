@@ -1602,6 +1602,17 @@ function renderPosts() {
     }
   });
 
+  // Auto-fill all 7 days (Mon–Sun) for every week that has at least one task
+  weekMap.forEach(wkData => {
+    const monday = wkData.weekStart;
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(monday);
+      d.setDate(monday.getDate() + i);
+      const dateStr = toDateStrLocal(d);
+      if (!wkData.dates.has(dateStr)) wkData.dates.set(dateStr, new Map());
+    }
+  });
+
   const sortedWeeks = [...weekMap.entries()].sort((a, b) => a[0].localeCompare(b[0]));
   let html = '';
 
