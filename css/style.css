@@ -700,12 +700,11 @@ body {
 .reel-video-row + .reel-video-row { border-top: 1px solid var(--border); }
 
 .reel-num {
-  width: 24px; height: 24px; border-radius: 50%;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 0.76rem; font-weight: 700; flex-shrink: 0;
+  font-size: 0.87rem; font-weight: 700; color: var(--text);
+  flex-shrink: 0;
 }
-.reel-num--1 { background: #2A2A2A; color: #fff; }
-.reel-num--2 { background: #2A2A2A; color: #fff; }
+.reel-num--1 {}
+.reel-num--2 {}
 
 .reel-row-info { flex: 1; min-width: 0; }
 .reel-row-title { font-size: 0.87rem; font-weight: 700; color: var(--text); }
