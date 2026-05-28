@@ -520,6 +520,8 @@ function setFilter(f) {
 function renderTaskCards() {
   const list = state.tasks.filter(t => t.status === state.statusFilter);
   const el   = document.getElementById('status-content');
+  const isPlatformView = state.statusFilter === '投稿' || state.statusFilter === '広告';
+  el.dataset.view = isPlatformView ? 'platform' : 'list';
 
   if (!list.length) {
     el.innerHTML = `<div class="empty-state">
@@ -527,6 +529,11 @@ function renderTaskCards() {
       <div class="empty-label">タスクがありません</div>
       <div class="empty-hint">＋ボタンからタスクを追加してください</div>
     </div>`;
+    return;
+  }
+
+  if (isPlatformView) {
+    renderStatusPlatformView(list, el);
     return;
   }
 
@@ -539,9 +546,6 @@ function renderTaskCards() {
     } else if (task.status === 'ゆっきー') {
       advBtns = `<button class="advance-btn" onclick="advanceTaskTo('${task.id}','せい');event.stopPropagation()">→ せい</button>
                  <button class="advance-btn" onclick="advanceTaskTo('${task.id}','ともちん');event.stopPropagation()">→ ともちん</button>`;
-    } else if (task.status === '投稿') {
-      advBtns = `<button class="advance-btn" onclick="advanceTaskTo('${task.id}','広告');event.stopPropagation()">→ 広告</button>
-                 <button class="advance-btn" onclick="advanceTaskTo('${task.id}','完了');event.stopPropagation()">→ 完了</button>`;
     } else {
       const next = getNextStatus(task.status);
       if (next) advBtns = `<button class="advance-btn" onclick="advanceTaskTo('${task.id}','${next}');event.stopPropagation()">→ ${esc(next)}</button>`;
@@ -563,9 +567,103 @@ function renderTaskCards() {
   }).join('');
 }
 
+function renderStatusPlatformView(list, el) {
+  const byPlatform = new Map();
+  PLATFORMS.forEach(p => byPlatform.set(p.id, []));
+  const noPlatTasks = [];
+
+  list.forEach(task => {
+    const pids = (task.platforms || []).filter(pid => PLATFORMS.find(p => p.id === pid));
+    if (pids.length) pids.forEach(pid => byPlatform.get(pid)?.push(task));
+    else noPlatTasks.push(task);
+  });
+
+  const isPost = state.statusFilter === '投稿';
+
+  function platformCardHtml(task) {
+    const st = STATUS_STYLE[task.status] || {};
+    const advBtns = isPost
+      ? `<button class="advance-btn" onclick="advanceTaskTo('${task.id}','広告');event.stopPropagation()">→ 広告</button>
+         <button class="advance-btn" onclick="advanceTaskTo('${task.id}','完了');event.stopPropagation()">→ 完了</button>`
+      : `<button class="advance-btn" onclick="advanceTaskTo('${task.id}','完了');event.stopPropagation()">→ 完了</button>`;
+    return `<div class="task-card" data-task-id="${task.id}"
+        style="border-left-color:${st.border || '#E5E7EB'}"
+        onclick="openEditTask('${task.id}')">
+      <div class="task-card-top">
+        <div class="task-title">${esc(task.title)}</div>
+        <div class="task-card-actions" onclick="event.stopPropagation()">
+          ${advBtns}
+          <button class="video-action-btn video-delete-btn"
+            onclick="quickDeleteTask('${task.id}');event.stopPropagation()" title="削除">🗑️</button>
+        </div>
+      </div>
+      ${task.notes ? `<div class="task-notes-preview">${esc(task.notes)}</div>` : ''}
+    </div>`;
+  }
+
+  let html = '';
+  PLATFORMS.forEach(platform => {
+    const tasks = byPlatform.get(platform.id) || [];
+    html += `<div class="status-platform-section" data-platform="${platform.id}">
+      <div class="status-platform-header">${esc(platform.name)}</div>
+      <div class="status-platform-cards">
+        ${tasks.map(platformCardHtml).join('')}
+      </div>
+    </div>`;
+  });
+
+  if (noPlatTasks.length) {
+    html += `<div class="status-platform-section" data-platform="__none__">
+      <div class="status-platform-header">未設定</div>
+      <div class="status-platform-cards">
+        ${noPlatTasks.map(platformCardHtml).join('')}
+      </div>
+    </div>`;
+  }
+
+  el.innerHTML = html;
+  setupStatusPlatformDrag();
+}
+
 function advanceTaskTo(id, targetStatus) {
   const task = state.tasks.find(t => t.id === id);
   if (!task) return;
+
+  if (targetStatus === '投稿') {
+    const isEnglish = task.title.startsWith('英語●');
+    const pids = isEnglish
+      ? ['tiktok_en', 'instagram_en', 'youtube_en']
+      : ['tiktok_jp', 'instagram_jp', 'youtube_jp'];
+    const originalIdx = state.tasks.indexOf(task);
+    const now = new Date().toISOString();
+    const newTasks = pids.map(pid => ({
+      id: uid(),
+      title: task.title,
+      store: task.store || '',
+      platforms: [pid],
+      status: '投稿',
+      postDate: task.postDate || null,
+      notes: task.notes || '',
+      createdAt: now,
+      updatedAt: now,
+    }));
+    state.tasks.splice(originalIdx, 1, ...newTasks);
+    if (state.activeTab === 'status') state.statusFilter = '投稿';
+    saveState();
+    refreshCurrentTab();
+    const newIds = newTasks.map(t => t.id);
+    const savedTask = { ...task };
+    showToast(`→ 投稿 に進みました`, () => {
+      const firstNewIdx = state.tasks.findIndex(t => newIds.includes(t.id));
+      state.tasks = state.tasks.filter(t => !newIds.includes(t.id));
+      if (firstNewIdx !== -1) state.tasks.splice(firstNewIdx, 0, savedTask);
+      if (state.activeTab === 'status') state.statusFilter = savedTask.status;
+      saveState();
+      refreshCurrentTab();
+    });
+    return;
+  }
+
   const prevStatus  = task.status;
   const prevUpdated = task.updatedAt;
   task.status    = targetStatus;
@@ -609,6 +707,7 @@ function quickDeleteTask(id) {
 // =============================================
 
 function setupTaskDrag() {
+  if (state.statusFilter === '投稿' || state.statusFilter === '広告') return;
   const cards = document.querySelectorAll('.task-card[data-task-id]');
   const chips = document.querySelectorAll('.filter-chip[data-status]');
 
@@ -769,6 +868,198 @@ function reorderTasks(srcId, tgtId) {
   state.tasks.splice(ti, 0, moved);
   saveState();
   renderStatus();
+}
+
+function setupStatusPlatformDrag() {
+  const cards    = document.querySelectorAll('#status-content .task-card[data-task-id]');
+  const chips    = document.querySelectorAll('.filter-chip[data-status]');
+  const sections = document.querySelectorAll('.status-platform-section[data-platform]');
+
+  let dragTaskId = null, dragFromPlatform = null;
+  let longTimer = null, touchItem = null, touchClone = null, offX = 0, offY = 0;
+
+  function clearOver() {
+    document.querySelectorAll('.status-platform-section.drag-over, #status-content .task-card.drag-over')
+      .forEach(el => el.classList.remove('drag-over'));
+  }
+
+  cards.forEach(card => {
+    const taskId = card.dataset.taskId;
+    const task   = state.tasks.find(t => t.id === taskId);
+    if (!task) return;
+    const section = card.closest('.status-platform-section');
+    const fromPlatform = section?.dataset.platform || '__none__';
+
+    card.draggable = true;
+
+    card.addEventListener('dragstart', e => {
+      dragTaskId = taskId; dragFromPlatform = fromPlatform;
+      card.classList.add('is-dragging');
+      e.dataTransfer.effectAllowed = 'move';
+      chips.forEach(c => c.classList.add('is-drop-target'));
+    });
+    card.addEventListener('dragend', () => {
+      card.classList.remove('is-dragging');
+      clearOver();
+      chips.forEach(c => c.classList.remove('is-drop-target', 'drag-over'));
+      dragTaskId = null;
+    });
+    card.addEventListener('dragover', e => {
+      if (!dragTaskId || taskId === dragTaskId) return;
+      e.preventDefault();
+      clearOver();
+      card.classList.add('drag-over');
+    });
+    card.addEventListener('drop', e => {
+      e.preventDefault();
+      if (!dragTaskId || taskId === dragTaskId) return;
+      const toPlatform = card.closest('.status-platform-section')?.dataset.platform || '__none__';
+      clearOver();
+      handleStatusPlatformDrop(dragTaskId, dragFromPlatform, toPlatform, taskId);
+    });
+
+    // Touch long-press drag
+    card.addEventListener('touchstart', e => {
+      const touch = e.touches[0];
+      longTimer = setTimeout(() => {
+        touchItem = card; dragTaskId = taskId; dragFromPlatform = fromPlatform;
+        card.classList.add('is-dragging');
+        const rect = card.getBoundingClientRect();
+        offX = touch.clientX - rect.left; offY = touch.clientY - rect.top;
+        touchClone = card.cloneNode(true);
+        touchClone.className += ' task-drag-clone';
+        touchClone.style.cssText += `;width:${rect.width}px;top:${rect.top}px;left:${rect.left}px;`;
+        document.body.appendChild(touchClone);
+        chips.forEach(c => c.classList.add('is-drop-target'));
+        navigator.vibrate?.(30);
+      }, 500);
+    }, { passive: true });
+
+    card.addEventListener('touchmove', e => {
+      if (!touchItem) { clearTimeout(longTimer); return; }
+      e.preventDefault();
+      const touch = e.touches[0];
+      if (touchClone) {
+        touchClone.style.top  = (touch.clientY - offY) + 'px';
+        touchClone.style.left = (touch.clientX - offX) + 'px';
+      }
+      clearOver();
+      chips.forEach(c => c.classList.remove('drag-over'));
+      const el = document.elementFromPoint(touch.clientX, touch.clientY);
+      const chip = el?.closest('.filter-chip[data-status]');
+      const sec  = el?.closest('.status-platform-section[data-platform]');
+      const tCard = el?.closest('.task-card[data-task-id]');
+      if (chip && chip.dataset.status !== state.statusFilter) {
+        chip.classList.add('drag-over');
+      } else if (tCard && tCard !== touchItem) {
+        tCard.classList.add('drag-over');
+      } else if (sec && sec.dataset.platform !== dragFromPlatform) {
+        sec.classList.add('drag-over');
+      }
+    }, { passive: false });
+
+    card.addEventListener('touchend', e => {
+      clearTimeout(longTimer);
+      if (!touchItem) return;
+      const touch = e.changedTouches[0];
+      touchClone?.remove(); touchClone = null;
+      touchItem.classList.remove('is-dragging');
+      chips.forEach(c => c.classList.remove('is-drop-target', 'drag-over'));
+      clearOver();
+      const el    = document.elementFromPoint(touch.clientX, touch.clientY);
+      const chip  = el?.closest('.filter-chip[data-status]');
+      const sec   = el?.closest('.status-platform-section[data-platform]');
+      const tCard = el?.closest('.task-card[data-task-id]');
+      if (chip) {
+        const s = chip.dataset.status;
+        if (s && s !== state.statusFilter) changeTaskStatus(dragTaskId, s);
+      } else if (tCard && tCard !== touchItem) {
+        const toPlatform = tCard.closest('.status-platform-section')?.dataset.platform || '__none__';
+        handleStatusPlatformDrop(dragTaskId, dragFromPlatform, toPlatform, tCard.dataset.taskId);
+      } else if (sec) {
+        const toPlatform = sec.dataset.platform;
+        if (toPlatform !== dragFromPlatform) handleStatusPlatformDrop(dragTaskId, dragFromPlatform, toPlatform, null);
+      }
+      touchItem = null; dragTaskId = null;
+    }, { passive: true });
+
+    card.addEventListener('touchcancel', () => {
+      clearTimeout(longTimer);
+      touchClone?.remove(); touchClone = null;
+      if (touchItem) { touchItem.classList.remove('is-dragging'); touchItem = null; }
+      chips.forEach(c => c.classList.remove('is-drop-target', 'drag-over'));
+      clearOver();
+      dragTaskId = null;
+    }, { passive: true });
+  });
+
+  sections.forEach(section => {
+    section.addEventListener('dragover', e => {
+      if (!dragTaskId) return;
+      if (section.dataset.platform === dragFromPlatform) return;
+      if (e.target?.closest('.task-card[data-task-id]')) return;
+      e.preventDefault();
+      clearOver();
+      section.classList.add('drag-over');
+    });
+    section.addEventListener('dragleave', e => {
+      if (!e.relatedTarget || !section.contains(e.relatedTarget)) section.classList.remove('drag-over');
+    });
+    section.addEventListener('drop', e => {
+      e.preventDefault();
+      const toPlatform = section.dataset.platform;
+      if (!dragTaskId) return;
+      clearOver();
+      handleStatusPlatformDrop(dragTaskId, dragFromPlatform, toPlatform, null);
+    });
+  });
+
+  chips.forEach(chip => {
+    chip.addEventListener('dragover', e => {
+      if (!dragTaskId) return;
+      const s = chip.dataset.status;
+      if (s && s !== state.statusFilter) {
+        e.preventDefault();
+        chips.forEach(c => c.classList.remove('drag-over'));
+        chip.classList.add('drag-over');
+      }
+    });
+    chip.addEventListener('dragleave', () => chip.classList.remove('drag-over'));
+    chip.addEventListener('drop', e => {
+      e.preventDefault();
+      const s = chip.dataset.status;
+      if (!dragTaskId || !s || s === state.statusFilter) return;
+      changeTaskStatus(dragTaskId, s);
+    });
+  });
+}
+
+function handleStatusPlatformDrop(taskId, fromPlatform, toPlatform, insertBeforeTaskId) {
+  const task = state.tasks.find(t => t.id === taskId);
+  if (!task) return;
+  let changed = false;
+
+  if (toPlatform && toPlatform !== fromPlatform && toPlatform !== '__none__') {
+    task.platforms = [toPlatform];
+    task.updatedAt = new Date().toISOString();
+    changed = true;
+  }
+
+  if (insertBeforeTaskId && insertBeforeTaskId !== taskId) {
+    const si = state.tasks.findIndex(t => t.id === taskId);
+    const ti = state.tasks.findIndex(t => t.id === insertBeforeTaskId);
+    if (si !== -1 && ti !== -1 && si !== ti) {
+      const [moved] = state.tasks.splice(si, 1);
+      state.tasks.splice(state.tasks.findIndex(t => t.id === insertBeforeTaskId), 0, moved);
+      if (!changed) task.updatedAt = new Date().toISOString();
+      changed = true;
+    }
+  }
+
+  if (changed) {
+    saveState();
+    refreshCurrentTab();
+  }
 }
 
 function changeTaskStatus(id, newStatus) {

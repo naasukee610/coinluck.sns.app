@@ -631,6 +631,60 @@ body {
 }
 
 /* =============================================
+   STATUS PAGE — PLATFORM VIEW (投稿 / 広告)
+   ============================================= */
+
+#status-content[data-view="platform"] {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.status-platform-section {
+  margin-bottom: 10px;
+}
+
+.status-platform-header {
+  background: #3D4244;
+  color: #FFFFFF;
+  font-size: 0.71rem;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  padding: 5px 12px;
+  border-radius: var(--r-sm) var(--r-sm) 0 0;
+}
+
+.status-platform-cards {
+  background: var(--card-soft);
+  border: 1px solid var(--border);
+  border-top: none;
+  border-radius: 0 0 var(--r-sm) var(--r-sm);
+  padding: 6px;
+  min-height: 36px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.status-platform-section.drag-over .status-platform-header {
+  background: #555E62;
+}
+.status-platform-section.drag-over .status-platform-cards {
+  border-color: var(--primary);
+  background: var(--primary-lt);
+}
+
+@media (min-width: 768px) {
+  #status-content[data-view="platform"] {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    align-items: start;
+    gap: 10px;
+  }
+  .status-platform-section { margin-bottom: 0; }
+}
+
+/* =============================================
    EMPTY STATE
    ============================================= */
 
