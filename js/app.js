@@ -153,7 +153,7 @@ const state = {
   editingLinkId:           null,
   editingNoteId:           null,
   editingAnnounceId:       null,
-  editingMeetingWeekKey:   null,
+  editingMeetingNoteId:    null,
 };
 
 // drag state shared between desktop and touch handlers
@@ -1835,43 +1835,28 @@ function setupPostsDrag() {
 // NOTES PAGE
 // =============================================
 
-function getMeetingWeekKey(date) {
-  const d = new Date(date);
-  d.setHours(0, 0, 0, 0);
-  const dow = d.getDay();
-  const diff = dow === 0 ? -6 : 1 - dow;
-  d.setDate(d.getDate() + diff);
-  return toDateStrLocal(d); // Monday YYYY-MM-DD as key
-}
-
-function getMeetingWeekLabel(weekKey) {
-  return getWeekLabel(new Date(weekKey + 'T00:00:00'));
-}
-
 function buildMeetingSection() {
-  const todayKey     = getMeetingWeekKey(new Date());
-  const thisWeekNote = state.meetingNotes.find(n => n.weekKey === todayKey);
-  const btnLabel     = thisWeekNote ? '今週を編集' : '今週を追加';
-
   let html = `<div class="meeting-notes-section">
     <div class="meeting-section-header">
       <span class="meeting-section-title">📋 ミーティングノート</span>
-      <button class="header-btn header-btn--sm" onclick="openMeetingNote('${todayKey}')">${btnLabel}</button>
+      <button class="header-btn header-btn--sm" onclick="openAddMeetingNote()">＋ 追加</button>
     </div>`;
 
-  if (!state.meetingNotes.length) {
-    html += `<p class="meeting-notes-empty">ミーティングノートがまだありません</p>`;
+  const valid = state.meetingNotes.filter(mn => mn.url);
+  if (!valid.length) {
+    html += `<p class="meeting-notes-empty">Notionのリンクがまだありません</p>`;
   } else {
-    const sorted = [...state.meetingNotes].sort((a, b) => b.weekKey.localeCompare(a.weekKey));
-    sorted.forEach(mn => {
-      const preview  = (mn.content || '').replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim().slice(0, 60);
-      const updated  = mn.updatedAt ? formatDateLabel(mn.updatedAt.slice(0, 10)) : '';
-      html += `<div class="meeting-note-card" onclick="openMeetingNote('${mn.weekKey}')">
-        <div class="meeting-note-card-row">
-          <span class="meeting-note-week">${getMeetingWeekLabel(mn.weekKey)}</span>
-          <span class="meeting-note-date">${updated}</span>
+    valid.forEach(mn => {
+      html += `<div class="mn-item">
+        <div class="mn-icon">📅</div>
+        <div class="mn-info" onclick="openEditMeetingNote('${mn.id}')">
+          <div class="mn-date">${esc(mn.date)}</div>
+          ${mn.description ? `<div class="mn-desc">${esc(mn.description)}</div>` : ''}
         </div>
-        ${preview ? `<div class="meeting-note-preview">${esc(preview)}</div>` : ''}
+        <a class="mn-open-btn" href="${esc(mn.url)}" target="_blank" rel="noopener noreferrer"
+           onclick="event.stopPropagation()">開く</a>
+        <button class="mn-del-btn" title="削除"
+          onclick="quickDeleteMeetingNote('${mn.id}');event.stopPropagation()">🗑️</button>
       </div>`;
     });
   }
@@ -1943,72 +1928,73 @@ function renderNotes() {
 // MEETING NOTES
 // =============================================
 
-let quillEditor = null;
-
-function initMeetingEditor() {
-  if (quillEditor) return;
-  quillEditor = new Quill('#meeting-quill-editor', {
-    theme: 'snow',
-    placeholder: 'ミーティングの内容を入力...',
-    modules: {
-      toolbar: [
-        [{ header: [1, 2, 3, false] }],
-        ['bold', 'italic', 'strike'],
-        [{ list: 'ordered' }, { list: 'bullet' }, { list: 'check' }],
-        ['link'],
-        ['clean'],
-      ],
-    },
-  });
+function openAddMeetingNote() {
+  state.editingMeetingNoteId = null;
+  document.getElementById('meeting-modal-title').textContent = 'ミーティングノート追加';
+  document.getElementById('mn-date').value        = '';
+  document.getElementById('mn-url').value         = '';
+  document.getElementById('mn-description').value = '';
+  document.getElementById('delete-meeting-btn').classList.add('is-hidden');
+  document.getElementById('meeting-modal').classList.remove('is-hidden');
+  document.getElementById('mn-date').focus();
 }
 
-function openMeetingNote(weekKey) {
-  initMeetingEditor();
-  state.editingMeetingWeekKey = weekKey;
-  const mn = state.meetingNotes.find(n => n.weekKey === weekKey);
-  document.getElementById('meeting-modal-title').textContent = getMeetingWeekLabel(weekKey);
-  if (mn) {
-    quillEditor.clipboard.dangerouslyPasteHTML(mn.content || '');
-    document.getElementById('delete-meeting-btn').classList.remove('is-hidden');
-  } else {
-    quillEditor.setContents([]);
-    document.getElementById('delete-meeting-btn').classList.add('is-hidden');
-  }
+function openEditMeetingNote(id) {
+  const mn = state.meetingNotes.find(n => n.id === id);
+  if (!mn) return;
+  state.editingMeetingNoteId = id;
+  document.getElementById('meeting-modal-title').textContent = 'ミーティングノート編集';
+  document.getElementById('mn-date').value        = mn.date        || '';
+  document.getElementById('mn-url').value         = mn.url         || '';
+  document.getElementById('mn-description').value = mn.description || '';
+  document.getElementById('delete-meeting-btn').classList.remove('is-hidden');
   document.getElementById('meeting-modal').classList.remove('is-hidden');
-  setTimeout(() => quillEditor.focus(), 50);
 }
 
 function closeMeetingNoteModal() {
   document.getElementById('meeting-modal').classList.add('is-hidden');
-  state.editingMeetingWeekKey = null;
+  state.editingMeetingNoteId = null;
 }
 
-function saveMeetingNote() {
-  if (!quillEditor) return;
-  const weekKey = state.editingMeetingWeekKey;
-  if (!weekKey) return;
-  const content = quillEditor.root.innerHTML;
-  const now     = new Date().toISOString();
-  const existing = state.meetingNotes.find(n => n.weekKey === weekKey);
-  if (existing) {
-    existing.content   = content;
-    existing.updatedAt = now;
+function onSaveMeetingNote(e) {
+  e.preventDefault();
+  const date        = document.getElementById('mn-date').value.trim();
+  const url         = document.getElementById('mn-url').value.trim();
+  const description = document.getElementById('mn-description').value.trim();
+  if (!date || !url) return;
+
+  if (state.editingMeetingNoteId) {
+    const mn = state.meetingNotes.find(n => n.id === state.editingMeetingNoteId);
+    if (mn) { mn.date = date; mn.url = url; mn.description = description; }
+    showToast('ミーティングノートを更新しました');
   } else {
-    state.meetingNotes.push({ id: uid(), weekKey, content, createdAt: now, updatedAt: now });
+    state.meetingNotes.push({ id: uid(), date, url, description, createdAt: new Date().toISOString() });
+    showToast('ミーティングノートを追加しました');
   }
   saveState();
   closeMeetingNoteModal();
   renderNotes();
-  showToast('ミーティングノートを保存しました');
 }
 
-function deleteMeetingNote() {
+function onDeleteMeetingNote() {
   if (!confirm('このミーティングノートを削除しますか？')) return;
-  state.meetingNotes = state.meetingNotes.filter(n => n.weekKey !== state.editingMeetingWeekKey);
+  state.meetingNotes = state.meetingNotes.filter(n => n.id !== state.editingMeetingNoteId);
   saveState();
   closeMeetingNoteModal();
   renderNotes();
   showToast('ミーティングノートを削除しました');
+}
+
+function quickDeleteMeetingNote(id) {
+  const mn = state.meetingNotes.find(n => n.id === id);
+  if (!mn) return;
+  state.meetingNotes = state.meetingNotes.filter(n => n.id !== id);
+  saveState();
+  renderNotes();
+  showToast('削除しました', () => {
+    state.meetingNotes.push(mn);
+    saveState(); renderNotes();
+  });
 }
 
 function setupNoteDrag() {
@@ -2885,8 +2871,8 @@ function setupEvents() {
   // Meeting note modal
   document.getElementById('close-meeting-modal').addEventListener('click', closeMeetingNoteModal);
   document.getElementById('meeting-modal-backdrop').addEventListener('click', closeMeetingNoteModal);
-  document.getElementById('save-meeting-btn').addEventListener('click', saveMeetingNote);
-  document.getElementById('delete-meeting-btn').addEventListener('click', deleteMeetingNote);
+  document.getElementById('meeting-note-form').addEventListener('submit', onSaveMeetingNote);
+  document.getElementById('delete-meeting-btn').addEventListener('click', onDeleteMeetingNote);
 
   // Announce modal
   document.getElementById('close-announce-modal').addEventListener('click', closeAnnounceModal);
