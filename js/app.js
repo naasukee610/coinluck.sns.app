@@ -1872,7 +1872,7 @@ function generateTasksForVideo(videoTitle, circledNum, prodMonth, postMonth) {
       store:     store,
       platforms: [],
       status:    '撮影中',
-      notes:     `制作: ${prodMonth} / 投稿: ${postMonth}`,
+      notes:     '',
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     });
@@ -1920,7 +1920,7 @@ function onSaveReel(e) {
       state.tasks.unshift({
         id: uid(), title: `EC①${title1}`, store: 'EC店',
         platforms: [], status: '撮影中',
-        notes: `制作: ${prodMonth}`,
+        notes: '',
         createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
       });
       showToast('ECリールを追加しました（EC店のタスク1件を生成）');
@@ -1930,7 +1930,7 @@ function onSaveReel(e) {
         state.tasks.unshift({
           id: uid(), title: `${store}①${title1}`, store,
           platforms: [], status: '撮影中',
-          notes: `制作: ${prodMonth}`,
+          notes: '',
           createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
         });
       });
