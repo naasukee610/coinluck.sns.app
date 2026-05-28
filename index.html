@@ -166,7 +166,13 @@
           </div>
           <div class="form-group">
             <label for="task-post-date">投稿日（任意）</label>
-            <input type="date" id="task-post-date">
+            <div class="post-date-row">
+              <input type="date" id="task-post-date" style="flex:1">
+              <label class="hold-check-label">
+                <input type="checkbox" id="task-hold">
+                時期まで保留
+              </label>
+            </div>
           </div>
           <div class="form-group">
             <label for="task-notes">メモ（任意）</label>

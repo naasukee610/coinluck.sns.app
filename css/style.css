@@ -1120,6 +1120,7 @@ body {
   margin-bottom: 10px;
 }
 .post-unassigned-group .post-week-label { color: #A07060; border-color: #C8B8A8; }
+.post-hold-group .post-week-label { color: #5A7890; border-color: #A0B8C8; }
 .post-date-section { margin-bottom: 14px; }
 .post-date-label {
   font-size: 0.88rem; font-weight: 700; color: var(--text);
@@ -1127,6 +1128,15 @@ body {
   border-bottom: 1px solid var(--border);
   display: flex; align-items: baseline; gap: 5px; flex-wrap: wrap;
 }
+.post-date-row {
+  display: flex; align-items: center; gap: 10px;
+}
+.hold-check-label {
+  display: flex; align-items: center; gap: 5px;
+  font-size: 0.78rem; font-weight: 600; color: #5A7890;
+  cursor: pointer; white-space: nowrap; flex-shrink: 0;
+}
+.hold-check-label input[type="checkbox"] { accent-color: #5A7890; width: 14px; height: 14px; }
 .date-holiday { color: #B04040; }
 .date-saturday { color: #3A65B0; }
 .date-holiday-name {

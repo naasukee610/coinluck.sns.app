@@ -1940,21 +1940,52 @@ function postTaskCardHtml(task, platformId, dateStr) {
   </div>`;
 }
 
+function buildPostsSpecialSection(dateKey, label, tasks, groupClass) {
+  const byPlatform = new Map();
+  PLATFORMS.forEach(p => byPlatform.set(p.id, []));
+  const noPlat = [];
+  tasks.forEach(task => {
+    const pids = (task.platforms || []).filter(pid => PLATFORMS.find(p => p.id === pid));
+    if (pids.length) pids.forEach(pid => byPlatform.get(pid)?.push(task));
+    else noPlat.push(task);
+  });
+  let platformsHtml = '';
+  PLATFORMS.forEach(platform => {
+    const pts = byPlatform.get(platform.id) || [];
+    const isEmpty = !pts.length;
+    platformsHtml += `<div class="post-platform-group${isEmpty ? ' is-empty' : ''}" data-platform="${platform.id}" data-date="${dateKey}">
+      <div class="post-platform-label">${platform.name}</div>
+      ${pts.map(t => postTaskCardHtml(t, platform.id, dateKey)).join('')}
+    </div>`;
+  });
+  if (noPlat.length) {
+    platformsHtml += `<div class="post-platform-group" data-platform="__none__" data-date="${dateKey}">
+      <div class="post-platform-label">未設定</div>
+      ${noPlat.map(t => postTaskCardHtml(t, '__none__', dateKey)).join('')}
+    </div>`;
+  }
+  return `<div class="post-week-group ${groupClass}" data-week-start="${dateKey}">
+    <div class="post-week-label">${label}</div>
+    ${platformsHtml}
+  </div>`;
+}
+
 function renderPosts() {
   const el = document.getElementById('posts-content');
   const activeTasks = state.tasks.filter(t => t.status === '投稿');
 
   if (!activeTasks.length) {
     el.innerHTML = `<div class="empty-state">
-      <span class="empty-icon">📱</span>
+      <span class="empty-icon">📌</span>
       <div class="empty-label">投稿中のタスクがありません</div>
       <div class="empty-hint">ステータスが「投稿」になると自動でここに表示されます</div>
     </div>`;
     return;
   }
 
-  const datedTasks   = activeTasks.filter(t => t.postDate);
+  const heldTasks    = activeTasks.filter(t => t.postDate === '__hold__');
   const undatedTasks = activeTasks.filter(t => !t.postDate);
+  const datedTasks   = activeTasks.filter(t => t.postDate && t.postDate !== '__hold__');
 
   // Build week → date → platform map
   const weekMap = new Map();
@@ -1975,7 +2006,7 @@ function renderPosts() {
   });
 
   // Auto-fill Mon/Tue/Fri/Sat/Sun; Wed/Thu only when holiday; skip past empty days
-  const DEFAULT_DAYS = new Set([0, 1, 2, 5, 6]); // Sun=0 Mon=1 Tue=2 Fri=5 Sat=6
+  const DEFAULT_DAYS = new Set([0, 1, 2, 5, 6]);
   const todayStr = toDateStrLocal(new Date());
   weekMap.forEach(wkData => {
     const monday = wkData.weekStart;
@@ -1984,18 +2015,22 @@ function renderPosts() {
       d.setDate(monday.getDate() + i);
       const dateStr = toDateStrLocal(d);
       if (!wkData.dates.has(dateStr)) {
-        // Only auto-fill today or future empty days; past empty days stay hidden
         if (dateStr >= todayStr && (DEFAULT_DAYS.has(d.getDay()) || JP_HOLIDAYS[dateStr])) {
           wkData.dates.set(dateStr, new Map());
         }
       }
-      // Days already in weekMap (have actual tasks) always show, even if past
     }
   });
 
   const sortedWeeks = [...weekMap.entries()].sort((a, b) => a[0].localeCompare(b[0]));
   let html = '';
 
+  // 1. 未振り分け at top
+  if (undatedTasks.length) {
+    html += buildPostsSpecialSection('__none__', '未振り分け', undatedTasks, 'post-unassigned-group');
+  }
+
+  // 2. Dated weeks
   sortedWeeks.forEach(([weekKey, wkData]) => {
     const sortedDates = [...wkData.dates.entries()].sort((a, b) => a[0].localeCompare(b[0]));
     let datesHtml = '';
@@ -2010,7 +2045,6 @@ function renderPosts() {
           ${tasks.map(t => postTaskCardHtml(t, platform.id, dateStr)).join('')}
         </div>`;
       });
-      // Tasks with no platform under this date
       const noPlatTasks = platformMap.get('__none__') || [];
       if (noPlatTasks.length) {
         platformsHtml += `<div class="post-platform-group" data-platform="__none__" data-date="${dateStr}">
@@ -2018,7 +2052,6 @@ function renderPosts() {
           ${noPlatTasks.map(t => postTaskCardHtml(t, '__none__', dateStr)).join('')}
         </div>`;
       }
-
       datesHtml += `<div class="post-date-section" data-date="${dateStr}">
         <div class="post-date-label">${formatDateLabel(dateStr)}</div>
         ${platformsHtml}
@@ -2031,36 +2064,8 @@ function renderPosts() {
     </div>`;
   });
 
-  // Undated tasks
-  if (undatedTasks.length) {
-    let undatedHtml = '';
-    const undatedByPlatform = new Map();
-    PLATFORMS.forEach(p => undatedByPlatform.set(p.id, []));
-    const noPlat = [];
-    undatedTasks.forEach(task => {
-      const pids = (task.platforms || []).filter(pid => PLATFORMS.find(p => p.id === pid));
-      if (pids.length) pids.forEach(pid => undatedByPlatform.get(pid)?.push(task));
-      else noPlat.push(task);
-    });
-    PLATFORMS.forEach(platform => {
-      const tasks   = undatedByPlatform.get(platform.id) || [];
-      const isEmpty = !tasks.length;
-      undatedHtml += `<div class="post-platform-group${isEmpty ? ' is-empty' : ''}" data-platform="${platform.id}" data-date="__none__">
-        <div class="post-platform-label">${platform.name}</div>
-        ${tasks.map(t => postTaskCardHtml(t, platform.id, '__none__')).join('')}
-      </div>`;
-    });
-    if (noPlat.length) {
-      undatedHtml += `<div class="post-platform-group" data-platform="__none__" data-date="__none__">
-        <div class="post-platform-label">未設定</div>
-        ${noPlat.map(t => postTaskCardHtml(t, '__none__', '__none__')).join('')}
-      </div>`;
-    }
-    html += `<div class="post-week-group post-unassigned-group" data-week-start="__none__">
-      <div class="post-week-label">未振り分け</div>
-      ${undatedHtml}
-    </div>`;
-  }
+  // 3. 時期まで保留 at bottom (always visible as drop target)
+  html += buildPostsSpecialSection('__hold__', '時期まで保留', heldTasks, 'post-hold-group');
 
   el.innerHTML = html;
   setupPostsDrag();
@@ -2866,8 +2871,10 @@ function openAddTaskModal() {
   document.getElementById('task-id').value        = '';
   document.getElementById('task-title').value     = '';
   document.getElementById('task-store').value     = '';
-  document.getElementById('task-post-date').value = '';
-  document.getElementById('task-notes').value     = '';
+  document.getElementById('task-post-date').value    = '';
+  document.getElementById('task-post-date').disabled = false;
+  document.getElementById('task-hold').checked        = false;
+  document.getElementById('task-notes').value         = '';
   document.getElementById('delete-task-btn').classList.add('is-hidden');
   document.getElementById('task-updated-info')?.classList.add('is-hidden');
   document.querySelectorAll('.platform-chip').forEach(c => c.classList.remove('is-selected'));
@@ -2884,7 +2891,10 @@ function openEditTask(id) {
   document.getElementById('task-id').value           = id;
   document.getElementById('task-title').value        = task.title || '';
   document.getElementById('task-store').value        = task.store || '';
-  document.getElementById('task-post-date').value    = task.postDate || '';
+  const isHeld = task.postDate === '__hold__';
+  document.getElementById('task-post-date').value    = isHeld ? '' : (task.postDate || '');
+  document.getElementById('task-post-date').disabled = isHeld;
+  document.getElementById('task-hold').checked       = isHeld;
   document.getElementById('task-notes').value        = task.notes || '';
   document.getElementById('delete-task-btn').classList.remove('is-hidden');
   document.querySelectorAll('.platform-chip').forEach(c => {
@@ -2956,7 +2966,9 @@ function onSaveTask(e) {
     store:     document.getElementById('task-store').value,
     platforms,
     status,
-    postDate:  document.getElementById('task-post-date').value || null,
+    postDate:  document.getElementById('task-hold').checked
+               ? '__hold__'
+               : (document.getElementById('task-post-date').value || null),
     notes:     document.getElementById('task-notes').value.trim(),
     updatedAt: new Date().toISOString(),
   };
@@ -3343,6 +3355,11 @@ function setupEvents() {
   // Task modal
   document.getElementById('close-task-modal').addEventListener('click', closeTaskModal);
   document.getElementById('task-modal-backdrop').addEventListener('click', closeTaskModal);
+  document.getElementById('task-hold').addEventListener('change', function() {
+    const dateEl = document.getElementById('task-post-date');
+    dateEl.disabled = this.checked;
+    if (this.checked) dateEl.value = '';
+  });
   document.getElementById('task-form').addEventListener('submit', onSaveTask);
   document.getElementById('delete-task-btn').addEventListener('click', onDeleteTask);
 
