@@ -743,40 +743,68 @@ body {
    POSTS PAGE
    ============================================= */
 
-.post-platform-header {
-  display: flex; align-items: center; gap: 8px; margin-bottom: 10px;
+.post-week-group {
+  display: flex; flex-direction: column; gap: 0;
+  margin-bottom: 22px;
 }
-.post-platform-badge {
-  display: inline-flex; align-items: center; gap: 4px;
-  padding: 4px 10px; border-radius: 20px;
-  font-size: 0.78rem; font-weight: 700;
-  border: 1.5px solid; flex-shrink: 0;
+.post-week-label {
+  font-size: 0.68rem; font-weight: 700; color: var(--muted);
+  letter-spacing: 0.5px;
+  padding: 0 2px 6px;
+  border-bottom: 1.5px solid var(--border);
+  margin-bottom: 10px;
 }
-.post-count-chip {
-  font-size: 0.7rem; font-weight: 700; color: var(--muted);
-  background: var(--border); padding: 2px 7px; border-radius: 10px;
-}
-.post-task-row {
-  display: flex; align-items: center; gap: 8px;
-  padding: 9px 0;
+.post-unassigned-group .post-week-label { color: #A07060; border-color: #C8B8A8; }
+.post-date-section { margin-bottom: 14px; }
+.post-date-label {
+  font-size: 0.88rem; font-weight: 700; color: var(--text);
+  padding: 0 2px 6px; margin-bottom: 6px;
   border-bottom: 1px solid var(--border);
+}
+.post-platform-group {
+  display: flex; flex-direction: column; gap: 5px;
+  margin-bottom: 8px;
+}
+.post-platform-label {
+  font-size: 0.63rem; font-weight: 700; color: var(--muted);
+  text-transform: uppercase; letter-spacing: 0.8px;
+  padding: 0 2px 2px;
+}
+.post-platform-group.is-empty::after {
+  content: '';
+  display: block;
+  height: 18px;
+  border: 1.5px dashed var(--border);
+  border-radius: var(--r-sm);
+  opacity: 0.4;
+}
+.post-platform-group.is-empty.drag-over { background: var(--primary-lt); border-radius: var(--r-sm); }
+.post-platform-group.is-empty.drag-over::after { border-color: var(--primary); opacity: 1; }
+.post-platform-group.drag-over > .post-platform-label { color: var(--primary); }
+.post-task-card {
+  background: var(--card);
+  border-radius: var(--r-sm);
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  display: flex; align-items: center; gap: 8px;
+  cursor: default;
   touch-action: pan-y;
 }
-.post-task-row:last-child { border-bottom: none; }
-.post-task-info { flex: 1; min-width: 0; cursor: pointer; }
-.post-task-title { font-size: 0.85rem; font-weight: 700; }
-.post-task-meta-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 2px; }
-.post-task-meta { font-size: 0.68rem; color: var(--muted); }
-.post-task-right {
-  display: flex; flex-direction: column; align-items: flex-end; gap: 5px; flex-shrink: 0;
+.post-task-card.is-dragging { opacity: 0.4; }
+.post-task-card.drag-over { border-top: 2px solid var(--primary) !important; box-shadow: none !important; }
+.post-drag-handle {
+  font-size: 1rem; color: var(--border); flex-shrink: 0;
+  cursor: grab; user-select: none; letter-spacing: -1px;
 }
-.post-advance-btn {
-  background: var(--primary); color: #fff; border: none; cursor: pointer;
-  padding: 4px 10px; border-radius: 12px;
-  font-size: 0.68rem; font-weight: 700; font-family: inherit;
-  white-space: nowrap;
+.post-drag-handle:active { cursor: grabbing; }
+.post-card-title {
+  flex: 1; min-width: 0;
+  font-size: 0.85rem; font-weight: 700;
+  cursor: pointer; word-break: break-word;
 }
-.post-advance-btn:active { opacity: 0.75; }
+@media (pointer: coarse) {
+  .post-task-card { user-select: none; -webkit-user-select: none; }
+}
 
 /* =============================================
    LINKS PAGE
@@ -1066,7 +1094,7 @@ body {
   .task-card,
   .note-item,
   .link-item,
-  .post-task-row {
+  .post-task-card {
     user-select: none;
     -webkit-user-select: none;
   }

@@ -823,9 +823,47 @@ function renderVideos() {
 // POSTS PAGE
 // =============================================
 
+function getMondayOfWeek(dateStr) {
+  const d = new Date(dateStr + 'T00:00:00');
+  const dow = d.getDay();
+  const diff = dow === 0 ? -6 : 1 - dow;
+  const mon = new Date(d);
+  mon.setDate(d.getDate() + diff);
+  return mon;
+}
+
+function toDateStrLocal(d) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${dd}`;
+}
+
+function getWeekLabel(monday) {
+  const month   = monday.getMonth() + 1;
+  const weekNum = Math.ceil(monday.getDate() / 7);
+  const sunday  = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+  const endM = sunday.getMonth() + 1;
+  return `${month}月第${weekNum}週　${month}/${monday.getDate()}〜${endM}/${sunday.getDate()}`;
+}
+
+function formatDateLabel(dateStr) {
+  const d = new Date(dateStr + 'T00:00:00');
+  return `${d.getMonth()+1}/${d.getDate()}（${DAY_NAMES[d.getDay()]}）`;
+}
+
+function postTaskCardHtml(task, platformId, dateStr) {
+  const advLabel = task.status === '投稿' ? '→ 広告' : '→ 完了';
+  return `<div class="post-task-card" data-task-id="${task.id}" data-from-platform="${platformId}" data-from-date="${dateStr}" draggable="true">
+    <div class="post-drag-handle">⠿</div>
+    <div class="post-card-title" onclick="openEditTask('${task.id}')">${esc(task.title)}</div>
+    <button class="advance-btn" onclick="advanceTaskStatus('${task.id}');event.stopPropagation()">${advLabel}</button>
+  </div>`;
+}
+
 function renderPosts() {
   const el = document.getElementById('posts-content');
-
   const activeTasks = state.tasks.filter(t => t.status === '投稿' || t.status === '広告');
 
   if (!activeTasks.length) {
@@ -837,54 +875,98 @@ function renderPosts() {
     return;
   }
 
-  const byPlatform = {};
-  PLATFORMS.forEach(p => { byPlatform[p.id] = []; });
+  const datedTasks   = activeTasks.filter(t => t.postDate);
+  const undatedTasks = activeTasks.filter(t => !t.postDate);
 
-  activeTasks.forEach(task => {
-    (task.platforms || []).forEach(pid => {
-      if (byPlatform[pid]) byPlatform[pid].push(task);
-    });
+  // Build week → date → platform map
+  const weekMap = new Map();
+  datedTasks.forEach(task => {
+    const monday  = getMondayOfWeek(task.postDate);
+    const weekKey = toDateStrLocal(monday);
+    if (!weekMap.has(weekKey)) weekMap.set(weekKey, { weekStart: monday, dates: new Map() });
+    const wk = weekMap.get(weekKey);
+    if (!wk.dates.has(task.postDate)) wk.dates.set(task.postDate, new Map());
+    const dm = wk.dates.get(task.postDate);
+    const pids = (task.platforms || []).filter(pid => PLATFORMS.find(p => p.id === pid));
+    if (pids.length) {
+      pids.forEach(pid => { if (!dm.has(pid)) dm.set(pid, []); dm.get(pid).push(task); });
+    } else {
+      if (!dm.has('__none__')) dm.set('__none__', []);
+      dm.get('__none__').push(task);
+    }
   });
 
-  PLATFORMS.forEach(p => {
-    byPlatform[p.id].sort((a, b) => {
-      if (!a.postDate && !b.postDate) return 0;
-      if (!a.postDate) return 1;
-      if (!b.postDate) return -1;
-      return a.postDate.localeCompare(b.postDate);
-    });
-  });
+  const sortedWeeks = [...weekMap.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+  let html = '';
 
-  el.innerHTML = PLATFORMS.map(platform => {
-    const tasks = byPlatform[platform.id];
-    if (!tasks.length) return '';
-    const rule = POSTING_RULES[platform.id];
+  sortedWeeks.forEach(([weekKey, wkData]) => {
+    const sortedDates = [...wkData.dates.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+    let datesHtml = '';
 
-    return `<div class="card post-platform-section">
-      <div class="post-platform-header">
-        <span class="post-platform-badge" style="background:${rule.color}22;color:${rule.color};border-color:${rule.color}55">${rule.icon} ${rule.name}</span>
-        <span class="post-count-chip">${tasks.length}</span>
-      </div>
-      ${tasks.map(task => {
-        const st = STATUS_STYLE[task.status];
-        const advLabel = task.status === '投稿' ? '➡️ 広告' : '➡️ 完了';
-        const dateDisp = task.postDate ? task.postDate.slice(5).replace('-', '/') : '';
-        return `<div class="post-task-row" data-task-id="${task.id}">
-          <div class="post-task-info" onclick="openEditTask('${task.id}')">
-            <div class="post-task-title">${esc(task.title)}</div>
-            <div class="post-task-meta-row">
-              ${task.store ? `<span class="post-task-meta">📍 ${esc(task.store)}</span>` : ''}
-              ${dateDisp ? `<span class="post-task-meta">📅 ${dateDisp}</span>` : ''}
-            </div>
-          </div>
-          <div class="post-task-right">
-            ${statusBadge(task.status)}
-            <button class="post-advance-btn" onclick="advanceTaskStatus('${task.id}');event.stopPropagation()">${advLabel}</button>
-          </div>
+    sortedDates.forEach(([dateStr, platformMap]) => {
+      let platformsHtml = '';
+      PLATFORMS.forEach(platform => {
+        const tasks   = platformMap.get(platform.id) || [];
+        const isEmpty = !tasks.length;
+        platformsHtml += `<div class="post-platform-group${isEmpty ? ' is-empty' : ''}" data-platform="${platform.id}" data-date="${dateStr}">
+          <div class="post-platform-label">${platform.name}</div>
+          ${tasks.map(t => postTaskCardHtml(t, platform.id, dateStr)).join('')}
         </div>`;
-      }).join('')}
+      });
+      // Tasks with no platform under this date
+      const noPlatTasks = platformMap.get('__none__') || [];
+      if (noPlatTasks.length) {
+        platformsHtml += `<div class="post-platform-group" data-platform="__none__" data-date="${dateStr}">
+          <div class="post-platform-label">未設定</div>
+          ${noPlatTasks.map(t => postTaskCardHtml(t, '__none__', dateStr)).join('')}
+        </div>`;
+      }
+
+      datesHtml += `<div class="post-date-section" data-date="${dateStr}">
+        <div class="post-date-label">${formatDateLabel(dateStr)}</div>
+        ${platformsHtml}
+      </div>`;
+    });
+
+    html += `<div class="post-week-group" data-week-start="${weekKey}">
+      <div class="post-week-label">${getWeekLabel(wkData.weekStart)}</div>
+      ${datesHtml}
     </div>`;
-  }).join('');
+  });
+
+  // Undated tasks
+  if (undatedTasks.length) {
+    let undatedHtml = '';
+    const undatedByPlatform = new Map();
+    PLATFORMS.forEach(p => undatedByPlatform.set(p.id, []));
+    const noPlat = [];
+    undatedTasks.forEach(task => {
+      const pids = (task.platforms || []).filter(pid => PLATFORMS.find(p => p.id === pid));
+      if (pids.length) pids.forEach(pid => undatedByPlatform.get(pid)?.push(task));
+      else noPlat.push(task);
+    });
+    PLATFORMS.forEach(platform => {
+      const tasks = undatedByPlatform.get(platform.id) || [];
+      if (!tasks.length) return;
+      undatedHtml += `<div class="post-platform-group" data-platform="${platform.id}" data-date="__none__">
+        <div class="post-platform-label">${platform.name}</div>
+        ${tasks.map(t => postTaskCardHtml(t, platform.id, '__none__')).join('')}
+      </div>`;
+    });
+    if (noPlat.length) {
+      undatedHtml += `<div class="post-platform-group" data-platform="__none__" data-date="__none__">
+        <div class="post-platform-label">未設定</div>
+        ${noPlat.map(t => postTaskCardHtml(t, '__none__', '__none__')).join('')}
+      </div>`;
+    }
+    html += `<div class="post-week-group post-unassigned-group" data-week-start="__none__">
+      <div class="post-week-label">未振り分け</div>
+      ${undatedHtml}
+    </div>`;
+  }
+
+  el.innerHTML = html;
+  setupPostsDrag();
 }
 
 function advanceTaskStatus(id) {
@@ -906,80 +988,155 @@ function advanceTaskStatus(id) {
   });
 }
 
+function handlePostsDrop(srcCard, targetCard, targetGroup) {
+  const taskId      = srcCard.dataset.taskId;
+  const fromPlatform = srcCard.dataset.fromPlatform;
+  const fromDate    = srcCard.dataset.fromDate;
+  const toGroup     = targetCard ? targetCard.closest('.post-platform-group') : targetGroup;
+  const toDate      = toGroup?.dataset.date;
+  const toPlatform  = toGroup?.dataset.platform;
+  const task        = state.tasks.find(t => t.id === taskId);
+  if (!task) return;
+
+  let changed = false;
+
+  if (toDate && toDate !== fromDate) {
+    task.postDate  = toDate === '__none__' ? null : toDate;
+    changed = true;
+  }
+
+  if (toPlatform && toPlatform !== fromPlatform && toPlatform !== '__none__') {
+    const pids = [...(task.platforms || [])];
+    const idx = pids.indexOf(fromPlatform);
+    if (idx !== -1) pids.splice(idx, 1);
+    if (!pids.includes(toPlatform)) pids.push(toPlatform);
+    task.platforms = pids;
+    changed = true;
+  }
+
+  if (targetCard) {
+    const si = state.tasks.findIndex(t => t.id === taskId);
+    const ti = state.tasks.findIndex(t => t.id === targetCard.dataset.taskId);
+    if (si !== -1 && ti !== -1 && si !== ti) {
+      const [moved] = state.tasks.splice(si, 1);
+      state.tasks.splice(state.tasks.findIndex(t => t.id === targetCard.dataset.taskId), 0, moved);
+      changed = true;
+    }
+  }
+
+  if (changed) {
+    task.updatedAt = new Date().toISOString();
+    saveState();
+    refreshCurrentTab();
+  }
+}
+
 function setupPostsDrag() {
-  document.querySelectorAll('.post-platform-section').forEach(section => {
-    const rows = () => section.querySelectorAll('.post-task-row[data-task-id]');
-    let dragSrc = null;
-    let longTimer = null, touchDragItem = null, touchClone = null, offX = 0, offY = 0;
+  let dragSrc = null;
+  let longTimer = null, touchDragItem = null, touchClone = null, offX = 0, offY = 0;
 
-    section.querySelectorAll('.post-task-row[data-task-id]').forEach(row => {
-      // Desktop drag
-      row.addEventListener('dragstart', e => {
-        dragSrc = row;
-        row.classList.add('is-dragging');
-        e.dataTransfer.effectAllowed = 'move';
-      });
-      row.addEventListener('dragend', () => {
-        row.classList.remove('is-dragging');
-        rows().forEach(r => r.classList.remove('drag-over'));
-        dragSrc = null;
-      });
-      row.addEventListener('dragover', e => {
-        if (!dragSrc || row === dragSrc) return;
-        e.preventDefault();
-        rows().forEach(r => r.classList.remove('drag-over'));
-        row.classList.add('drag-over');
-      });
-      row.addEventListener('drop', e => {
-        e.preventDefault();
-        if (!dragSrc || dragSrc === row) return;
-        reorderTasks(dragSrc.dataset.taskId, row.dataset.taskId);
-      });
+  function clearDragOver() {
+    document.querySelectorAll('.post-task-card.drag-over, .post-platform-group.drag-over')
+      .forEach(el => el.classList.remove('drag-over'));
+  }
 
-      // Touch drag (long press)
-      row.addEventListener('touchstart', e => {
-        const t = e.touches[0];
-        longTimer = setTimeout(() => {
-          touchDragItem = row;
-          row.classList.add('is-dragging');
-          const rect = row.getBoundingClientRect();
-          offX = t.clientX - rect.left; offY = t.clientY - rect.top;
-          touchClone = row.cloneNode(true);
-          touchClone.className += ' task-drag-clone';
-          touchClone.style.cssText += `;width:${rect.width}px;top:${rect.top}px;left:${rect.left}px;`;
-          document.body.appendChild(touchClone);
-          navigator.vibrate?.(30);
-        }, 500);
-      }, { passive: true });
+  document.querySelectorAll('.post-task-card[data-task-id]').forEach(card => {
+    // ---- Desktop ----
+    card.addEventListener('dragstart', e => {
+      dragSrc = card;
+      card.classList.add('is-dragging');
+      e.dataTransfer.effectAllowed = 'move';
+    });
+    card.addEventListener('dragend', () => {
+      card.classList.remove('is-dragging');
+      clearDragOver();
+      dragSrc = null;
+    });
+    card.addEventListener('dragover', e => {
+      if (!dragSrc || card === dragSrc) return;
+      e.preventDefault();
+      clearDragOver();
+      card.classList.add('drag-over');
+    });
+    card.addEventListener('drop', e => {
+      e.preventDefault();
+      if (!dragSrc || dragSrc === card) return;
+      clearDragOver();
+      handlePostsDrop(dragSrc, card, null);
+    });
 
-      row.addEventListener('touchmove', e => {
-        if (!touchDragItem) { clearTimeout(longTimer); return; }
-        e.preventDefault();
-        const t = e.touches[0];
-        if (touchClone) { touchClone.style.top = (t.clientY - offY) + 'px'; touchClone.style.left = (t.clientX - offX) + 'px'; }
-        rows().forEach(r => r.classList.remove('drag-over'));
-        for (const el of section.querySelectorAll('.post-task-row:not(.is-dragging)')) {
-          const r = el.getBoundingClientRect();
-          if (t.clientY >= r.top && t.clientY <= r.bottom) { el.classList.add('drag-over'); break; }
-        }
-      }, { passive: false });
+    // ---- Touch (long-press) ----
+    card.addEventListener('touchstart', e => {
+      const t = e.touches[0];
+      longTimer = setTimeout(() => {
+        touchDragItem = card;
+        card.classList.add('is-dragging');
+        const rect = card.getBoundingClientRect();
+        offX = t.clientX - rect.left; offY = t.clientY - rect.top;
+        touchClone = card.cloneNode(true);
+        touchClone.className += ' task-drag-clone';
+        touchClone.style.cssText += `;width:${rect.width}px;top:${rect.top}px;left:${rect.left}px;`;
+        document.body.appendChild(touchClone);
+        navigator.vibrate?.(30);
+      }, 500);
+    }, { passive: true });
 
-      row.addEventListener('touchend', () => {
-        clearTimeout(longTimer);
-        if (!touchDragItem) return;
-        touchClone?.remove(); touchClone = null;
-        touchDragItem.classList.remove('is-dragging');
-        const target = section.querySelector('.post-task-row.drag-over');
-        if (target) reorderTasks(touchDragItem.dataset.taskId, target.dataset.taskId);
-        touchDragItem = null;
-      }, { passive: true });
+    card.addEventListener('touchmove', e => {
+      if (!touchDragItem) { clearTimeout(longTimer); return; }
+      e.preventDefault();
+      const t = e.touches[0];
+      if (touchClone) { touchClone.style.top = (t.clientY - offY) + 'px'; touchClone.style.left = (t.clientX - offX) + 'px'; }
+      clearDragOver();
+      touchClone.style.display = 'none';
+      const elUnder = document.elementFromPoint(t.clientX, t.clientY);
+      touchClone.style.display = '';
+      const tCard  = elUnder?.closest('.post-task-card:not(.is-dragging)');
+      const tGroup = elUnder?.closest('.post-platform-group');
+      if (tCard)       tCard.classList.add('drag-over');
+      else if (tGroup) tGroup.classList.add('drag-over');
+    }, { passive: false });
 
-      row.addEventListener('touchcancel', () => {
-        clearTimeout(longTimer);
-        touchClone?.remove(); touchClone = null;
-        if (touchDragItem) { touchDragItem.classList.remove('is-dragging'); touchDragItem = null; }
-        section.querySelectorAll('.post-task-row').forEach(r => r.classList.remove('drag-over'));
-      }, { passive: true });
+    card.addEventListener('touchend', e => {
+      clearTimeout(longTimer);
+      if (!touchDragItem) return;
+      touchClone?.remove(); touchClone = null;
+      touchDragItem.classList.remove('is-dragging');
+      const t = e.changedTouches[0];
+      const elUnder = document.elementFromPoint(t.clientX, t.clientY);
+      const tCard  = elUnder?.closest('.post-task-card:not(.is-dragging)');
+      const tGroup = elUnder?.closest('.post-platform-group');
+      if (tCard)       handlePostsDrop(touchDragItem, tCard, null);
+      else if (tGroup) handlePostsDrop(touchDragItem, null, tGroup);
+      touchDragItem = null;
+      clearDragOver();
+    }, { passive: true });
+
+    card.addEventListener('touchcancel', () => {
+      clearTimeout(longTimer);
+      touchClone?.remove(); touchClone = null;
+      if (touchDragItem) { touchDragItem.classList.remove('is-dragging'); touchDragItem = null; }
+      clearDragOver();
+    }, { passive: true });
+  });
+
+  // Platform groups as drop targets (for empty groups / between cards)
+  document.querySelectorAll('.post-platform-group').forEach(group => {
+    group.addEventListener('dragover', e => {
+      if (!dragSrc || e.target.closest('.post-task-card')) return;
+      e.preventDefault();
+      clearDragOver();
+      group.classList.add('drag-over');
+    });
+    group.addEventListener('dragleave', e => {
+      if (!e.relatedTarget?.closest('.post-platform-group[data-platform="' + group.dataset.platform + '"]')) {
+        group.classList.remove('drag-over');
+      }
+    });
+    group.addEventListener('drop', e => {
+      if (!dragSrc || e.target.closest('.post-task-card')) return;
+      e.preventDefault();
+      clearDragOver();
+      handlePostsDrop(dragSrc, null, group);
     });
   });
 }
