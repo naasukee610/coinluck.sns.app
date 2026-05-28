@@ -210,6 +210,15 @@ const MONTHLY_REELS = [
 const CIRCLED = ['①', '②', '③', '④', '⑤', '⑥', '⑦', '⑧', '⑨', '⑩'];
 const DAY_NAMES = ['日', '月', '火', '水', '木', '金', '土'];
 
+const PLATFORM_SHORT = {
+  tiktok_jp:    'TT',
+  instagram_jp: 'IG',
+  youtube_jp:   'YT',
+  tiktok_en:    '英TT',
+  instagram_en: '英IG',
+  youtube_en:   '英YT',
+};
+
 // =============================================
 // STATE
 // =============================================
@@ -229,6 +238,8 @@ const state = {
   editingLinkId:           null,
   editingNoteId:           null,
   editingAnnounceId:       null,
+  calendarYear:            new Date().getFullYear(),
+  calendarMonth:           new Date().getMonth(),
 };
 
 // drag state shared between desktop and touch handlers
@@ -538,6 +549,152 @@ function renderHome() {
         <button class="announce-add-btn" onclick="openAddAnnouncement()">＋ 追加</button>
       </div>
       ${announceItems}
+    </div>
+    <div class="card" id="home-calendar-card"></div>`;
+  renderCalendarView();
+}
+
+// =============================================
+// CALENDAR (HOME, desktop only)
+// =============================================
+
+function isHolidayEveDay(dateStr) {
+  const d = new Date(dateStr + 'T00:00:00');
+  const next = new Date(d);
+  next.setDate(d.getDate() + 1);
+  return !!JP_HOLIDAYS[toDateStrLocal(next)];
+}
+
+// Effective deadline: go back from target day until Mon/Tue/Fri/Sat and not holiday
+function getEffectiveDeadline(year, month, day) {
+  let d = new Date(year, month, day);
+  for (let i = 0; i < 8; i++) {
+    const dow = d.getDay();
+    const ds  = toDateStrLocal(d);
+    if ((dow === 1 || dow === 2 || dow === 5 || dow === 6) && !JP_HOLIDAYS[ds]) return d;
+    d.setDate(d.getDate() - 1);
+  }
+  return d;
+}
+
+function calPrevMonth() {
+  if (state.calendarMonth === 0) { state.calendarYear--;  state.calendarMonth = 11; }
+  else state.calendarMonth--;
+  renderCalendarView();
+}
+
+function calNextMonth() {
+  if (state.calendarMonth === 11) { state.calendarYear++; state.calendarMonth = 0; }
+  else state.calendarMonth++;
+  renderCalendarView();
+}
+
+function navigateToPostDate(dateStr) {
+  navigate('posts');
+  setTimeout(() => {
+    const el = document.querySelector(`.post-date-section[data-date="${dateStr}"]`);
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }, 150);
+}
+
+function renderCalendarView() {
+  const el = document.getElementById('home-calendar-card');
+  if (!el) return;
+
+  const year  = state.calendarYear;
+  const month = state.calendarMonth;
+  const todayStr = toDateStrLocal(new Date());
+
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const firstDow    = new Date(year, month, 1).getDay(); // 0=Sun
+  const startOffset = firstDow === 0 ? 6 : firstDow - 1; // Mon=col0
+
+  const dl15 = toDateStrLocal(getEffectiveDeadline(year, month, 15));
+  const dl20 = toDateStrLocal(getEffectiveDeadline(year, month, 20));
+
+  const DOW_LABELS   = ['月', '火', '水', '木', '金', '土', '日'];
+  const DOW_CLASSES  = ['', '', '', '', '', 'sat', 'sun'];
+  const MONTH_NAMES  = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
+
+  const headerHtml = DOW_LABELS.map((d, i) =>
+    `<div class="cal-day-header ${DOW_CLASSES[i]}">${d}</div>`
+  ).join('');
+
+  let cellsHtml = `<div class="cal-cell empty"></div>`.repeat(startOffset);
+
+  for (let day = 1; day <= daysInMonth; day++) {
+    const d       = new Date(year, month, day);
+    const ds      = toDateStrLocal(d);
+    const dow     = d.getDay(); // 0=Sun
+    const holiday = JP_HOLIDAYS[ds];
+    const event   = ANNUAL_EVENTS[ds.slice(5)];
+    const isSat   = dow === 6;
+    const isSun   = dow === 0;
+    const isPast  = ds < todayStr;
+    const isToday = ds === todayStr;
+    const isEve   = isHolidayEveDay(ds);
+
+    let cls = 'cal-cell';
+    if (isPast && !isToday) cls += ' past';
+    if (isToday)  cls += ' today';
+    if (isSat)    cls += ' is-sat';
+    if (isSun || holiday) cls += ' is-sun';
+    if (holiday)  cls += ' is-holiday';
+
+    let labels = '';
+    if (day >= 1  && day <= 7)  labels += `<div class="cal-label shooting">撮影</div>`;
+    if (day >= 8  && day <= 14) labels += `<div class="cal-label editing">編集</div>`;
+    if (dow === 5 || dow === 6 || isEve)
+      labels += `<div class="cal-label update">更新日</div>`;
+    if (dow === 0 || dow === 1 || dow === 2 || holiday)
+      labels += `<div class="cal-label supplement">補助更新</div>`;
+    if (ds === dl15) labels += `<div class="cal-label deadline">15日〆切</div>`;
+    if (ds === dl20) labels += `<div class="cal-label deadline">20日〆切</div>`;
+    if (holiday)     labels += `<div class="cal-label holiday">${esc(holiday)}</div>`;
+    else if (event)  labels += `<div class="cal-label event">${esc(event)}</div>`;
+
+    // Tasks with postDate on this day
+    const tasks = state.tasks.filter(t =>
+      t.postDate === ds && (t.status === '投稿' || t.status === '広告')
+    );
+    let postsHtml = '';
+    if (tasks.length) {
+      const pids = new Set();
+      tasks.forEach(t => (t.platforms || []).forEach(p => pids.add(p)));
+      const chips = [...pids].map(p =>
+        `<span class="cal-post-chip">${PLATFORM_SHORT[p] || p}</span>`
+      ).join('');
+      postsHtml = `<div class="cal-posts">${chips}<span class="cal-post-chip cal-post-total">${tasks.length}件</span></div>`;
+    }
+
+    cellsHtml += `<div class="${cls}" onclick="navigateToPostDate('${ds}')">
+      <div class="cal-date-num">${day}</div>
+      <div class="cal-labels">${labels}</div>
+      ${postsHtml}
+    </div>`;
+  }
+
+  const total    = startOffset + daysInMonth;
+  const trailing = (7 - total % 7) % 7;
+  cellsHtml += `<div class="cal-cell empty"></div>`.repeat(trailing);
+
+  el.innerHTML = `
+    <div class="cal-toolbar">
+      <div class="card-title" style="margin-bottom:0">📅 投稿カレンダー</div>
+      <div class="cal-month-nav">
+        <button class="cal-nav-btn" onclick="calPrevMonth()">‹ 前月</button>
+        <span class="cal-month-title">${year}年${MONTH_NAMES[month]}</span>
+        <button class="cal-nav-btn" onclick="calNextMonth()">翌月 ›</button>
+      </div>
+    </div>
+    <div class="cal-grid">${headerHtml}${cellsHtml}</div>
+    <div class="cal-legend">
+      <span class="cal-legend-title">凡例</span>
+      <span class="cal-label shooting">撮影</span>
+      <span class="cal-label editing">編集</span>
+      <span class="cal-label update">更新日</span>
+      <span class="cal-label supplement">補助更新</span>
+      <span class="cal-label deadline">〆切</span>
     </div>`;
 }
 
