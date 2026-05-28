@@ -314,6 +314,11 @@ body {
    HOME — SCHEDULE
    ============================================= */
 
+.home-nav-card:active { opacity: 0.85; }
+.home-card-arrow {
+  float: right; font-size: 1.1rem; font-weight: 400;
+  color: var(--muted); margin-left: 6px; line-height: 1;
+}
 .schedule-item {
   display: flex; align-items: center; gap: 12px;
   padding: 9px 0;
@@ -738,6 +743,19 @@ body {
    POSTS PAGE
    ============================================= */
 
+.post-platform-header {
+  display: flex; align-items: center; gap: 8px; margin-bottom: 10px;
+}
+.post-platform-badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 4px 10px; border-radius: 20px;
+  font-size: 0.78rem; font-weight: 700;
+  border: 1.5px solid; flex-shrink: 0;
+}
+.post-count-chip {
+  font-size: 0.7rem; font-weight: 700; color: var(--muted);
+  background: var(--border); padding: 2px 7px; border-radius: 10px;
+}
 .post-task-row {
   display: flex; align-items: center; gap: 8px;
   padding: 9px 0;
@@ -745,16 +763,20 @@ body {
   touch-action: pan-y;
 }
 .post-task-row:last-child { border-bottom: none; }
-.post-task-row.is-dragging { opacity: 0.4; }
-.post-task-row.drag-over { border-top: 2px solid var(--primary) !important; }
-.post-drag-handle {
-  font-size: 1rem; color: var(--border); flex-shrink: 0;
-  cursor: grab; user-select: none; letter-spacing: -1px;
-}
-.post-drag-handle:active { cursor: grabbing; }
 .post-task-info { flex: 1; min-width: 0; cursor: pointer; }
 .post-task-title { font-size: 0.85rem; font-weight: 700; }
-.post-task-store { font-size: 0.68rem; color: var(--muted); margin-top: 2px; }
+.post-task-meta-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 2px; }
+.post-task-meta { font-size: 0.68rem; color: var(--muted); }
+.post-task-right {
+  display: flex; flex-direction: column; align-items: flex-end; gap: 5px; flex-shrink: 0;
+}
+.post-advance-btn {
+  background: var(--primary); color: #fff; border: none; cursor: pointer;
+  padding: 4px 10px; border-radius: 12px;
+  font-size: 0.68rem; font-weight: 700; font-family: inherit;
+  white-space: nowrap;
+}
+.post-advance-btn:active { opacity: 0.75; }
 
 /* =============================================
    LINKS PAGE

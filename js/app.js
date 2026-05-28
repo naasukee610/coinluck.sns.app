@@ -391,8 +391,8 @@ function renderHome() {
     : `<div class="announce-empty">お知らせはありません</div>`;
 
   document.getElementById('home-content').innerHTML = `
-    <div class="card" id="home-schedule-card">
-      <div class="card-title">📅 今日の投稿ガイド（${dayName}曜日）</div>
+    <div class="card home-nav-card" id="home-schedule-card" onclick="navigate('posts')" style="cursor:pointer">
+      <div class="card-title">📱 本日の投稿リスト（${dayName}曜日）<span class="home-card-arrow">›</span></div>
       ${scheduleHTML}
     </div>
     <div class="card" id="home-pipeline-card">
@@ -445,11 +445,18 @@ function onSaveAnnouncement(e) {
 }
 
 function deleteAnnouncement(id) {
-  if (!confirm('このお知らせを削除しますか？')) return;
+  const ann = state.announcements.find(a => a.id === id);
+  if (!ann) return;
+  const saved = { ...ann };
+  const savedIdx = state.announcements.indexOf(ann);
   state.announcements = state.announcements.filter(a => a.id !== id);
   saveState();
   renderHome();
-  showToast('お知らせを削除しました');
+  showToast('お知らせを削除しました', () => {
+    state.announcements.splice(savedIdx, 0, saved);
+    saveState();
+    renderHome();
+  });
 }
 
 // =============================================
@@ -819,21 +826,32 @@ function renderVideos() {
 function renderPosts() {
   const el = document.getElementById('posts-content');
 
-  if (!state.tasks.length) {
+  const activeTasks = state.tasks.filter(t => t.status === '投稿' || t.status === '広告');
+
+  if (!activeTasks.length) {
     el.innerHTML = `<div class="empty-state">
       <span class="empty-icon">📱</span>
-      <div class="empty-label">投稿タスクがありません</div>
-      <div class="empty-hint">＋ボタンからタスクを追加してください</div>
+      <div class="empty-label">投稿中のタスクがありません</div>
+      <div class="empty-hint">ステータスが「投稿」になると自動でここに表示されます</div>
     </div>`;
     return;
   }
 
   const byPlatform = {};
-  PLATFORMS.forEach(p => byPlatform[p.id] = []);
+  PLATFORMS.forEach(p => { byPlatform[p.id] = []; });
 
-  state.tasks.forEach(task => {
+  activeTasks.forEach(task => {
     (task.platforms || []).forEach(pid => {
       if (byPlatform[pid]) byPlatform[pid].push(task);
+    });
+  });
+
+  PLATFORMS.forEach(p => {
+    byPlatform[p.id].sort((a, b) => {
+      if (!a.postDate && !b.postDate) return 0;
+      if (!a.postDate) return 1;
+      if (!b.postDate) return -1;
+      return a.postDate.localeCompare(b.postDate);
     });
   });
 
@@ -843,20 +861,49 @@ function renderPosts() {
     const rule = POSTING_RULES[platform.id];
 
     return `<div class="card post-platform-section">
-      <div class="card-title" style="color:${rule.color}">${rule.icon} ${rule.name} （${tasks.length}件）</div>
-      ${tasks.map(task => `
-        <div class="post-task-row" data-task-id="${task.id}" draggable="true">
-          <div class="post-drag-handle">⠿</div>
+      <div class="post-platform-header">
+        <span class="post-platform-badge" style="background:${rule.color}22;color:${rule.color};border-color:${rule.color}55">${rule.icon} ${rule.name}</span>
+        <span class="post-count-chip">${tasks.length}</span>
+      </div>
+      ${tasks.map(task => {
+        const st = STATUS_STYLE[task.status];
+        const advLabel = task.status === '投稿' ? '➡️ 広告' : '➡️ 完了';
+        const dateDisp = task.postDate ? task.postDate.slice(5).replace('-', '/') : '';
+        return `<div class="post-task-row" data-task-id="${task.id}">
           <div class="post-task-info" onclick="openEditTask('${task.id}')">
             <div class="post-task-title">${esc(task.title)}</div>
-            ${task.store ? `<div class="post-task-store">📍 ${esc(task.store)}</div>` : ''}
+            <div class="post-task-meta-row">
+              ${task.store ? `<span class="post-task-meta">📍 ${esc(task.store)}</span>` : ''}
+              ${dateDisp ? `<span class="post-task-meta">📅 ${dateDisp}</span>` : ''}
+            </div>
           </div>
-          ${statusBadge(task.status)}
-        </div>`).join('')}
+          <div class="post-task-right">
+            ${statusBadge(task.status)}
+            <button class="post-advance-btn" onclick="advanceTaskStatus('${task.id}');event.stopPropagation()">${advLabel}</button>
+          </div>
+        </div>`;
+      }).join('')}
     </div>`;
   }).join('');
+}
 
-  setupPostsDrag();
+function advanceTaskStatus(id) {
+  const task = state.tasks.find(t => t.id === id);
+  if (!task) return;
+  const next = task.status === '投稿' ? '広告' : task.status === '広告' ? '完了' : null;
+  if (!next) return;
+  const prevStatus = task.status;
+  const prevUpdated = task.updatedAt;
+  task.status    = next;
+  task.updatedAt = new Date().toISOString();
+  saveState();
+  refreshCurrentTab();
+  showToast(`${esc(task.title)} → ${next}`, () => {
+    task.status    = prevStatus;
+    task.updatedAt = prevUpdated;
+    saveState();
+    refreshCurrentTab();
+  });
 }
 
 function setupPostsDrag() {
@@ -1341,10 +1388,11 @@ function initTaskFormElements() {
 function openAddTaskModal() {
   state.editingTaskId = null;
   document.getElementById('modal-title').textContent = '📝 タスク追加';
-  document.getElementById('task-id').value    = '';
-  document.getElementById('task-title').value = '';
-  document.getElementById('task-store').value = '';
-  document.getElementById('task-notes').value = '';
+  document.getElementById('task-id').value        = '';
+  document.getElementById('task-title').value     = '';
+  document.getElementById('task-store').value     = '';
+  document.getElementById('task-post-date').value = '';
+  document.getElementById('task-notes').value     = '';
   document.getElementById('delete-task-btn').classList.add('is-hidden');
   document.getElementById('task-updated-info')?.classList.add('is-hidden');
   document.querySelectorAll('.platform-chip').forEach(c => c.classList.remove('is-selected'));
@@ -1361,6 +1409,7 @@ function openEditTask(id) {
   document.getElementById('task-id').value           = id;
   document.getElementById('task-title').value        = task.title || '';
   document.getElementById('task-store').value        = task.store || '';
+  document.getElementById('task-post-date').value    = task.postDate || '';
   document.getElementById('task-notes').value        = task.notes || '';
   document.getElementById('delete-task-btn').classList.remove('is-hidden');
   document.querySelectorAll('.platform-chip').forEach(c => {
@@ -1432,6 +1481,7 @@ function onSaveTask(e) {
     store:     document.getElementById('task-store').value,
     platforms,
     status,
+    postDate:  document.getElementById('task-post-date').value || null,
     notes:     document.getElementById('task-notes').value.trim(),
     updatedAt: new Date().toISOString(),
   };
