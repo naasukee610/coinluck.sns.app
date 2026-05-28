@@ -343,7 +343,7 @@ body {
   font-size: 0.83rem; font-weight: 700;
   word-break: break-word;
 }
-.today-advance-btn { flex-shrink: 0; }
+.today-advance-btn { flex-shrink: 0; white-space: nowrap; }
 .schedule-item {
   display: flex; align-items: center; gap: 12px;
   padding: 9px 0;
@@ -552,14 +552,13 @@ body {
 .task-card:active { transform: scale(0.985); }
 
 .task-card-top {
-  display: flex; align-items: flex-start; justify-content: space-between; gap: 8px;
-  margin-bottom: 6px;
+  display: flex; align-items: center; gap: 8px;
 }
 .task-title {
-  font-size: 0.9rem; font-weight: 700; flex: 1; line-height: 1.35;
+  font-size: 0.88rem; font-weight: 700; flex: 1; min-width: 0; line-height: 1.35;
 }
 .task-card-actions {
-  display: flex; align-items: center; gap: 5px; flex-shrink: 0;
+  display: flex; align-items: center; gap: 4px; flex-shrink: 0; flex-wrap: nowrap;
 }
 
 .task-meta { display: flex; flex-wrap: wrap; gap: 5px; }
@@ -577,11 +576,6 @@ body {
   display: -webkit-box;
   -webkit-line-clamp: 2; -webkit-box-orient: vertical;
   overflow: hidden;
-}
-
-.task-card-footer {
-  display: flex; align-items: center; justify-content: flex-end;
-  margin-top: 8px;
 }
 
 /* updatedAt shown in edit modal, small and muted */
@@ -609,12 +603,15 @@ body {
 .advance-btn {
   background: var(--primary-lt); color: var(--primary);
   border: none; border-radius: var(--r-sm);
-  padding: 5px 12px;
+  padding: 4px 9px;
   font-family: inherit;
-  font-size: 0.73rem; font-weight: 700;
+  font-size: 0.7rem; font-weight: 700;
   cursor: pointer; transition: background 0.12s;
+  white-space: nowrap;
 }
 .advance-btn:active { background: var(--primary); color: #fff; }
+.post-card-btns { display: flex; gap: 4px; flex-shrink: 0; }
+.today-task-btns { display: flex; gap: 4px; flex-shrink: 0; }
 
 .done-chip {
   background: #E8F2E8; color: #2E7040;

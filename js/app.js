@@ -364,7 +364,10 @@ function buildTodayTasksHTML() {
 
   const taskCard = t => `<div class="today-task-item">
     <span class="today-task-title">${esc(t.title)}</span>
-    <button class="advance-btn today-advance-btn" onclick="advanceTaskStatus('${t.id}');event.stopPropagation()">→ 広告</button>
+    <div class="today-task-btns">
+      <button class="advance-btn today-advance-btn" onclick="advanceTaskTo('${t.id}','広告');event.stopPropagation()">→ 広告</button>
+      <button class="advance-btn today-advance-btn" onclick="advanceTaskTo('${t.id}','完了');event.stopPropagation()">→ 完了</button>
+    </div>
   </div>`;
 
   let html = '';
@@ -528,45 +531,62 @@ function renderTaskCards() {
   }
 
   el.innerHTML = list.map(task => {
-    const st   = STATUS_STYLE[task.status] || {};
-    const next = getNextStatus(task.status);
+    const st = STATUS_STYLE[task.status] || {};
 
-    return `
-      <div class="task-card" data-task-id="${task.id}"
-           style="border-left-color:${st.border || '#E5E7EB'}"
-           onclick="openEditTask('${task.id}')">
-        <div class="task-card-top">
-          <div class="task-title">${esc(task.title)}</div>
-          <div class="task-card-actions">
-            ${statusBadge(task.status)}
-            <button class="video-action-btn video-delete-btn"
-              onclick="quickDeleteTask('${task.id}');event.stopPropagation()" title="削除">🗑️</button>
-          </div>
+    let advBtns = '';
+    if (task.status === '完了') {
+      advBtns = `<span class="done-chip">✓ 完了</span>`;
+    } else if (task.status === 'ゆっきー') {
+      advBtns = `<button class="advance-btn" onclick="advanceTaskTo('${task.id}','せい');event.stopPropagation()">→ せい</button>
+                 <button class="advance-btn" onclick="advanceTaskTo('${task.id}','ともちん');event.stopPropagation()">→ ともちん</button>`;
+    } else if (task.status === '投稿') {
+      advBtns = `<button class="advance-btn" onclick="advanceTaskTo('${task.id}','広告');event.stopPropagation()">→ 広告</button>
+                 <button class="advance-btn" onclick="advanceTaskTo('${task.id}','完了');event.stopPropagation()">→ 完了</button>`;
+    } else {
+      const next = getNextStatus(task.status);
+      if (next) advBtns = `<button class="advance-btn" onclick="advanceTaskTo('${task.id}','${next}');event.stopPropagation()">→ ${esc(next)}</button>`;
+    }
+
+    return `<div class="task-card" data-task-id="${task.id}"
+         style="border-left-color:${st.border || '#E5E7EB'}"
+         onclick="openEditTask('${task.id}')">
+      <div class="task-card-top">
+        <div class="task-title">${esc(task.title)}</div>
+        <div class="task-card-actions" onclick="event.stopPropagation()">
+          ${advBtns}
+          <button class="video-action-btn video-delete-btn"
+            onclick="quickDeleteTask('${task.id}');event.stopPropagation()" title="削除">🗑️</button>
         </div>
-        ${task.notes ? `<div class="task-notes-preview">${esc(task.notes)}</div>` : ''}
-        ${next
-          ? `<div class="task-card-footer" onclick="event.stopPropagation()">
-               <button class="advance-btn" onclick="advanceTask('${task.id}');event.stopPropagation()">→ ${esc(next)}</button>
-             </div>`
-          : `<div class="task-card-footer" onclick="event.stopPropagation()">
-               <span class="done-chip">✓ 完了</span>
-             </div>`}
-      </div>`;
+      </div>
+      ${task.notes ? `<div class="task-notes-preview">${esc(task.notes)}</div>` : ''}
+    </div>`;
   }).join('');
+}
+
+function advanceTaskTo(id, targetStatus) {
+  const task = state.tasks.find(t => t.id === id);
+  if (!task) return;
+  const prevStatus  = task.status;
+  const prevUpdated = task.updatedAt;
+  task.status    = targetStatus;
+  task.updatedAt = new Date().toISOString();
+  if (state.activeTab === 'status') state.statusFilter = targetStatus;
+  saveState();
+  refreshCurrentTab();
+  showToast(`→ ${targetStatus} に進みました`, () => {
+    task.status    = prevStatus;
+    task.updatedAt = prevUpdated;
+    if (state.activeTab === 'status') state.statusFilter = prevStatus;
+    saveState();
+    refreshCurrentTab();
+  });
 }
 
 function advanceTask(id) {
   const task = state.tasks.find(t => t.id === id);
   if (!task) return;
   const next = getNextStatus(task.status);
-  if (!next) return;
-  task.status    = next;
-  task.updatedAt = new Date().toISOString();
-  saveState();
-  state.statusFilter = next;
-  renderStatus();
-  if (state.activeTab === 'home') renderHome();
-  showToast(`→ ${next} に進みました`);
+  if (next) advanceTaskTo(id, next);
 }
 
 function quickDeleteTask(id) {
@@ -881,11 +901,13 @@ function formatDateLabel(dateStr) {
 }
 
 function postTaskCardHtml(task, platformId, dateStr) {
-  const advLabel = '→ 広告';
   return `<div class="post-task-card" data-task-id="${task.id}" data-from-platform="${platformId}" data-from-date="${dateStr}" draggable="true">
     <div class="post-drag-handle">⠿</div>
     <div class="post-card-title" onclick="openEditTask('${task.id}')">${esc(task.title)}</div>
-    <button class="advance-btn" onclick="advanceTaskStatus('${task.id}');event.stopPropagation()">${advLabel}</button>
+    <div class="post-card-btns">
+      <button class="advance-btn" onclick="advanceTaskTo('${task.id}','広告');event.stopPropagation()">→ 広告</button>
+      <button class="advance-btn" onclick="advanceTaskTo('${task.id}','完了');event.stopPropagation()">→ 完了</button>
+    </div>
   </div>`;
 }
 
@@ -997,22 +1019,7 @@ function renderPosts() {
 }
 
 function advanceTaskStatus(id) {
-  const task = state.tasks.find(t => t.id === id);
-  if (!task) return;
-  const next = task.status === '投稿' ? '広告' : task.status === '広告' ? '完了' : null;
-  if (!next) return;
-  const prevStatus = task.status;
-  const prevUpdated = task.updatedAt;
-  task.status    = next;
-  task.updatedAt = new Date().toISOString();
-  saveState();
-  refreshCurrentTab();
-  showToast(`${esc(task.title)} → ${next}`, () => {
-    task.status    = prevStatus;
-    task.updatedAt = prevUpdated;
-    saveState();
-    refreshCurrentTab();
-  });
+  advanceTaskTo(id, '広告');
 }
 
 function handlePostsDrop(srcCard, targetCard, targetGroup) {
