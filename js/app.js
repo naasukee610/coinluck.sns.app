@@ -313,6 +313,11 @@ function copyFallback(text) {
   document.body.removeChild(ta);
 }
 
+function openLinkUrl(id) {
+  const link = state.links.find(l => l.id === id);
+  if (link && link.content) window.open(link.content, '_blank', 'noopener,noreferrer');
+}
+
 function copyLinkContent(id) {
   const link = state.links.find(l => l.id === id);
   if (link) copyText(link.content);
@@ -1831,37 +1836,19 @@ function setupPostsDrag() {
 // NOTES PAGE
 // =============================================
 
-const MEETING_NOTION_URL = 'https://www.notion.so/SNS-1a7a44a2d30280f5aef1c6b78e4d25da';
-
-function buildMeetingSection() {
-  return `<div class="meeting-notes-section">
-    <div class="meeting-section-title">📋 ミーティングノート</div>
-    <a class="mn-item mn-item--link" href="${MEETING_NOTION_URL}" target="_blank" rel="noopener noreferrer">
-      <div class="mn-icon">📝</div>
-      <div class="mn-info">
-        <div class="mn-date">ミーティングノート（Notion）</div>
-        <div class="mn-desc">タップして開く</div>
-      </div>
-      <span class="mn-open-btn">開く</span>
-    </a>
-  </div><div class="notes-section-divider"></div>`;
-}
-
 function renderNotes() {
   const el = document.getElementById('notes-content');
 
-  // Always show meeting section at top
-  let html = buildMeetingSection();
-
   if (!state.notes.length) {
-    html += `<div class="empty-state">
+    el.innerHTML = `<div class="empty-state">
       <span class="empty-icon">📓</span>
       <div class="empty-label">ノートがありません</div>
       <div class="empty-hint">右上の「＋追加」からノートを追加してください</div>
     </div>`;
-    el.innerHTML = html;
     return;
   }
+
+  let html = '';
 
   const pinned   = state.notes.filter(n => n.pinned);
   const unpinned = state.notes.filter(n => !n.pinned);
@@ -2127,6 +2114,7 @@ function renderLinks() {
             <div class="link-label">${esc(link.label)}</div>
             <div class="link-preview">${esc(link.content)}</div>
           </div>
+          ${link.type === 'link' ? `<button class="open-btn" onclick="openLinkUrl('${link.id}');event.stopPropagation()">開く</button>` : ''}
           <button class="copy-btn" onclick="copyLinkContent('${link.id}')">コピー</button>
         </div>`).join('')}
     </div>`).join('');

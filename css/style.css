@@ -217,10 +217,6 @@ body {
   font-size: 0.8rem; font-weight: 700;
   cursor: pointer;
 }
-.header-btn--sm {
-  padding: 4px 10px;
-  font-size: 0.73rem;
-}
 
 /* =============================================
    TAB BAR
@@ -475,55 +471,6 @@ body {
 /* =============================================
    NOTES PAGE
    ============================================= */
-
-/* --- Meeting Notes Section --- */
-.meeting-notes-section { margin-bottom: 0; }
-.meeting-section-title {
-  display: block;
-  font-size: 0.68rem; font-weight: 700; color: var(--muted);
-  text-transform: uppercase; letter-spacing: 0.5px;
-  padding: 0 2px 8px;
-  border-bottom: 1.5px solid var(--border);
-  margin-bottom: 10px;
-}
-.notes-section-divider {
-  border: none; border-top: 1.5px solid var(--border);
-  margin: 16px 0;
-}
-
-/* --- Meeting Note cards (link-style) --- */
-.mn-item {
-  background: var(--card);
-  border-radius: var(--r-sm);
-  padding: 11px 13px;
-  border: 1px solid var(--border);
-  display: flex; align-items: center; gap: 9px;
-  margin-bottom: 7px;
-  transition: transform 0.1s;
-}
-.mn-item--link {
-  text-decoration: none; color: inherit; cursor: pointer;
-}
-.mn-item--link:hover { background: var(--card-soft); }
-.mn-item:active { transform: scale(0.985); }
-.mn-icon { font-size: 1rem; flex-shrink: 0; }
-.mn-info { flex: 1; min-width: 0; cursor: pointer; }
-.mn-date { font-size: 0.85rem; font-weight: 700; }
-.mn-desc {
-  font-size: 0.7rem; color: var(--muted); margin-top: 2px;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-}
-.mn-open-btn {
-  background: var(--card-soft); color: var(--primary);
-  border: 1px solid var(--border); border-radius: var(--r-sm);
-  padding: 5px 12px;
-  font-family: inherit;
-  font-size: 0.72rem; font-weight: 700;
-  cursor: pointer; flex-shrink: 0;
-  text-decoration: none;
-  transition: background 0.12s;
-}
-.mn-open-btn:hover { background: var(--primary-lt); }
 
 .notes-section-label {
   font-size: 0.65rem; font-weight: 700; color: var(--muted);
@@ -1040,6 +987,16 @@ body {
   transition: background 0.12s;
 }
 .copy-btn:active { background: var(--primary-lt); }
+.open-btn {
+  background: var(--card-soft); color: var(--primary);
+  border: 1px solid var(--border); border-radius: var(--r-sm);
+  padding: 5px 12px;
+  font-family: inherit;
+  font-size: 0.72rem; font-weight: 700;
+  cursor: pointer; flex-shrink: 0;
+  transition: background 0.12s;
+}
+.open-btn:active { background: var(--primary-lt); }
 
 /* =============================================
    BOTTOM NAV (mobile)
