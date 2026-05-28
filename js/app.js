@@ -338,6 +338,48 @@ function goToStatus(filter) {
 // HOME
 // =============================================
 
+function buildTodayTasksHTML() {
+  const y = new Date().getFullYear();
+  const m = String(new Date().getMonth() + 1).padStart(2, '0');
+  const d = String(new Date().getDate()).padStart(2, '0');
+  const todayStr = `${y}-${m}-${d}`;
+
+  const todayTasks = state.tasks.filter(t =>
+    (t.status === '投稿' || t.status === '広告') && t.postDate === todayStr
+  );
+
+  if (!todayTasks.length) {
+    return `<div class="today-empty">本日の投稿タスクはありません</div>`;
+  }
+
+  const byPlatform = new Map();
+  PLATFORMS.forEach(p => byPlatform.set(p.id, []));
+  const noPlat = [];
+
+  todayTasks.forEach(task => {
+    const pids = (task.platforms || []).filter(pid => PLATFORMS.find(p => p.id === pid));
+    if (pids.length) pids.forEach(pid => byPlatform.get(pid)?.push(task));
+    else noPlat.push(task);
+  });
+
+  let html = '';
+  PLATFORMS.forEach(platform => {
+    const tasks = byPlatform.get(platform.id) || [];
+    if (!tasks.length) return;
+    html += `<div class="today-platform-group">
+      <div class="today-platform-label">${platform.name}</div>
+      ${tasks.map(t => `<div class="today-task-item">${esc(t.title)}</div>`).join('')}
+    </div>`;
+  });
+  if (noPlat.length) {
+    html += `<div class="today-platform-group">
+      <div class="today-platform-label">未設定</div>
+      ${noPlat.map(t => `<div class="today-task-item">${esc(t.title)}</div>`).join('')}
+    </div>`;
+  }
+  return html;
+}
+
 function renderHome() {
   const now = new Date();
   const dateEl = document.getElementById('today-date');
@@ -348,27 +390,7 @@ function renderHome() {
   const counts = Object.fromEntries(STATUSES.map(s => [s, 0]));
   state.tasks.forEach(t => { if (counts[t.status] !== undefined) counts[t.status]++; });
 
-  const todayItems = DAILY_SCHEDULE[now.getDay()] || [];
   const dayName = DAY_NAMES[now.getDay()];
-
-  const scheduleHTML = todayItems.length
-    ? todayItems.map(item => {
-        const rule = POSTING_RULES[item.platform];
-        return `
-          <div class="schedule-item${item.highlight ? ' is-highlight' : ''}">
-            <div class="schedule-platform-icon">${rule.icon}</div>
-            <div class="schedule-info">
-              <div class="schedule-name" style="color:${rule.color}">${rule.name}</div>
-              <div class="schedule-note">${esc(item.note)}</div>
-            </div>
-            ${item.highlight ? '<span class="highlight-star">⭐</span>' : ''}
-          </div>`;
-      }).join('')
-    : `<div class="schedule-empty">
-         <div class="empty-icon">😌</div>
-         <div class="empty-text">今日は予定投稿なし</div>
-         <div class="empty-sub">（緊急の場合を除く）</div>
-       </div>`;
 
   const pipelineHTML = STATUSES.map(s => {
     const st = STATUS_STYLE[s];
@@ -393,7 +415,7 @@ function renderHome() {
   document.getElementById('home-content').innerHTML = `
     <div class="card home-nav-card" id="home-schedule-card" onclick="navigate('posts')" style="cursor:pointer">
       <div class="card-title">📱 本日の投稿リスト（${dayName}曜日）<span class="home-card-arrow">›</span></div>
-      ${scheduleHTML}
+      ${buildTodayTasksHTML()}
     </div>
     <div class="card" id="home-pipeline-card">
       <div class="card-title">📊 タスク進捗（タップで絞り込み）</div>
@@ -946,9 +968,9 @@ function renderPosts() {
       else noPlat.push(task);
     });
     PLATFORMS.forEach(platform => {
-      const tasks = undatedByPlatform.get(platform.id) || [];
-      if (!tasks.length) return;
-      undatedHtml += `<div class="post-platform-group" data-platform="${platform.id}" data-date="__none__">
+      const tasks   = undatedByPlatform.get(platform.id) || [];
+      const isEmpty = !tasks.length;
+      undatedHtml += `<div class="post-platform-group${isEmpty ? ' is-empty' : ''}" data-platform="${platform.id}" data-date="__none__">
         <div class="post-platform-label">${platform.name}</div>
         ${tasks.map(t => postTaskCardHtml(t, platform.id, '__none__')).join('')}
       </div>`;
