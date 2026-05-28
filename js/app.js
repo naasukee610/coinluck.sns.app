@@ -13,7 +13,7 @@ const STATUS_STYLE = {
   'ゆっきー':{ bg: '#F5ECEE', text: '#8C5468', border: '#CCA8B4' },
   'せい':    { bg: '#E2EDE6', text: '#2D6045', border: '#80AA8E' },
   'ともちん':{ bg: '#F5EDD6', text: '#7A5E1C', border: '#C8A848' },
-  'な':      { bg: '#EAE8F5', text: '#4A4080', border: '#9B94CC' },
+  'な':      { bg: '#F2EFEC', text: '#7A7068', border: '#C8C0B8' },
   '投稿':    { bg: '#EAE6E2', text: '#6B6159', border: '#BCB4AC' },
   '広告':    { bg: '#F2EFEC', text: '#7A7068', border: '#C8C0B8' },
   '完了':    { bg: '#EAE6E2', text: '#6B6159', border: '#BCB4AC' },
@@ -539,7 +539,7 @@ function renderHome() {
   const announceItems = state.announcements.length
     ? state.announcements.map(a => `
         <div class="announce-item">
-          <span class="announce-bullet">📢</span>
+          <span class="announce-bullet">✔︎</span>
           <div class="announce-text">${esc(a.text)}</div>
           <button class="announce-del-btn"
             onclick="deleteAnnouncement('${a.id}');event.stopPropagation()" title="削除">✕</button>
@@ -548,7 +548,7 @@ function renderHome() {
 
   document.getElementById('home-content').innerHTML = `
     <div class="card home-nav-card" id="home-schedule-card" onclick="navigate('posts')" style="cursor:pointer">
-      <div class="card-title">📱 本日の投稿リスト（${dayName}曜日）<span class="home-card-arrow">›</span></div>
+      <div class="card-title">📌 本日の投稿リスト（${dayName}曜日）<span class="home-card-arrow">›</span></div>
       ${buildTodayTasksHTML()}
     </div>
     <div class="card" id="home-pipeline-card">
@@ -557,7 +557,7 @@ function renderHome() {
     </div>
     <div class="card" id="home-announce-card">
       <div class="announce-header">
-        <div class="card-title" style="margin-bottom:0">📢 お知らせ</div>
+        <div class="card-title" style="margin-bottom:0">✔︎ お知らせ</div>
         <button class="announce-add-btn" onclick="openAddAnnouncement()">＋ 追加</button>
       </div>
       ${announceItems}
