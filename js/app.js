@@ -565,13 +565,13 @@ function isHolidayEveDay(dateStr) {
   return !!JP_HOLIDAYS[toDateStrLocal(next)];
 }
 
-// Effective deadline: go back from target day until Mon/Tue/Fri/Sat and not holiday
+// Effective deadline: go back from target day until Mon/Tue/Fri and not holiday
 function getEffectiveDeadline(year, month, day) {
   let d = new Date(year, month, day);
   for (let i = 0; i < 8; i++) {
     const dow = d.getDay();
     const ds  = toDateStrLocal(d);
-    if ((dow === 1 || dow === 2 || dow === 5 || dow === 6) && !JP_HOLIDAYS[ds]) return d;
+    if ((dow === 1 || dow === 2 || dow === 5) && !JP_HOLIDAYS[ds]) return d;
     d.setDate(d.getDate() - 1);
   }
   return d;
@@ -609,6 +609,8 @@ function renderCalendarView() {
   const firstDow    = new Date(year, month, 1).getDay(); // 0=Sun
   const startOffset = firstDow === 0 ? 6 : firstDow - 1; // Mon=col0
 
+  const dl05 = toDateStrLocal(getEffectiveDeadline(year, month, 5));
+  const dl10 = toDateStrLocal(getEffectiveDeadline(year, month, 10));
   const dl15 = toDateStrLocal(getEffectiveDeadline(year, month, 15));
   const dl20 = toDateStrLocal(getEffectiveDeadline(year, month, 20));
 
@@ -648,13 +650,13 @@ function renderCalendarView() {
 
     // Labels (plain text, no backgrounds)
     let labels = '';
-    if (day >= 1  && day <= 7)  labels += `<span class="cal-label">撮影</span>`;
-    if (day >= 8  && day <= 14) labels += `<span class="cal-label">編集</span>`;
-    // 更新日: Mon/Tue/Fri/Sat/Sun + holiday eves + holidays (補助更新 merged in)
+    // 更新日: Mon/Tue/Fri/Sat/Sun + holiday eves + holidays
     if (dow === 0 || dow === 1 || dow === 2 || dow === 5 || dow === 6 || isEve || holiday)
       labels += `<span class="cal-label">更新日</span>`;
-    if (ds === dl15) labels += `<span class="cal-label cal-deadline">【15日〆切】</span>`;
-    if (ds === dl20) labels += `<span class="cal-label cal-deadline">【20日〆切】</span>`;
+    if (ds === dl05) labels += `<span class="cal-label cal-deadline">【5日〆切】見本動画撮影</span>`;
+    if (ds === dl10) labels += `<span class="cal-label cal-deadline">【10日〆切】月リール①編集</span>`;
+    if (ds === dl15) labels += `<span class="cal-label cal-deadline">【15日〆切】月リール②編集</span>`;
+    if (ds === dl20) labels += `<span class="cal-label cal-deadline">【20日〆切】来月台本・見本動画シェア、再来月動画決定</span>`;
 
     // Tasks with postDate on this day
     const tasks = state.tasks.filter(t =>
@@ -695,10 +697,8 @@ function renderCalendarView() {
     <div class="cal-grid">${headerHtml}${cellsHtml}</div>
     <div class="cal-legend">
       <span class="cal-legend-title">凡例</span>
-      <span class="cal-label">撮影</span>
-      <span class="cal-label">編集</span>
       <span class="cal-label">更新日</span>
-      <span class="cal-label cal-deadline">【〆切】</span>
+      <span class="cal-label cal-deadline">【〆切】内容</span>
     </div>`;
 }
 

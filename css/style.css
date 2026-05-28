@@ -505,6 +505,7 @@ body {
   font-size: 0.58rem; font-weight: 600; color: #B04040;
   min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
+.cal-cell.past .cal-holiday-inline { color: #C88888; }
 .cal-event-inline {
   font-size: 0.58rem; font-weight: 500; color: var(--text);
   min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
@@ -525,7 +526,7 @@ body {
 .cal-post-chip {
   font-size: 0.52rem; font-weight: 700;
   padding: 1px 3px; border-radius: 3px;
-  background: var(--primary-lt); color: var(--primary);
+  background: #EDE8E2; color: #7A5E3A;
   white-space: nowrap;
 }
 .cal-post-total { background: var(--card-soft); color: var(--muted); }
