@@ -796,7 +796,7 @@ function renderCalendarView() {
   el.innerHTML = `
     <div class="cal-toolbar">
       <div style="display:flex;align-items:center;gap:8px">
-        <span class="card-title" style="margin-bottom:0">月間スケジュール</span>
+        <span class="card-title" style="margin-bottom:0">📅 月間スケジュール</span>
         <button class="cal-edit-btn" onclick="openScheduleEdit()">⚙ 編集</button>
       </div>
       <div class="cal-month-nav">
