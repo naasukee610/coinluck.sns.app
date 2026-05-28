@@ -305,6 +305,7 @@ function navigate(tab) {
     .forEach(b => b.classList.add('active'));
 
   state.activeTab = tab;
+  try { localStorage.setItem('coinluck_tab', tab); } catch (_) {}
   ({ home: renderHome, status: renderStatus, videos: renderVideos,
      posts: renderPosts, notes: renderNotes, links: renderLinks })[tab]?.();
 }
@@ -1838,7 +1839,9 @@ function init() {
   saveState(); // persist initial reels so IDs are stable across reloads
   initTaskFormElements();
   setupEvents();
-  navigate('home');
+  const validTabs = ['home', 'status', 'posts', 'videos', 'notes', 'links'];
+  const lastTab   = localStorage.getItem('coinluck_tab') || 'home';
+  navigate(validTabs.includes(lastTab) ? lastTab : 'home');
 }
 
 document.addEventListener('DOMContentLoaded', init);
