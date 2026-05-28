@@ -704,8 +704,8 @@ body {
   display: flex; align-items: center; justify-content: center;
   font-size: 0.76rem; font-weight: 700; flex-shrink: 0;
 }
-.reel-num--1 { background: var(--primary-lt);  color: var(--primary); }
-.reel-num--2 { background: #E6EFE8;            color: #3E7A4E; }
+.reel-num--1 { background: #2A2A2A; color: #fff; }
+.reel-num--2 { background: #2A2A2A; color: #fff; }
 
 .reel-row-info { flex: 1; min-width: 0; }
 .reel-row-title { font-size: 0.87rem; font-weight: 700; color: var(--text); }
