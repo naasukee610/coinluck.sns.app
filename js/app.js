@@ -776,7 +776,6 @@ function changeTaskStatus(id, newStatus) {
   if (!task) return;
   task.status    = newStatus;
   task.updatedAt = new Date().toISOString();
-  state.statusFilter = newStatus;
   saveState();
   renderStatus();
   if (state.activeTab === 'home') renderHome();
