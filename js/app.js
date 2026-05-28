@@ -219,6 +219,13 @@ const PLATFORM_SHORT = {
   youtube_en:   '英YT',
 };
 
+const DEFAULT_CAL_SCHEDULE = [
+  { id: 'dl05', day: 5,  items: ['見本動画撮影'] },
+  { id: 'dl10', day: 10, items: ['月リール①編集'] },
+  { id: 'dl15', day: 15, items: ['月リール②編集'] },
+  { id: 'dl20', day: 20, items: ['来月台本', '見本動画シェア', '再来月動画決定'] },
+];
+
 // =============================================
 // STATE
 // =============================================
@@ -240,6 +247,7 @@ const state = {
   editingAnnounceId:       null,
   calendarYear:            new Date().getFullYear(),
   calendarMonth:           new Date().getMonth(),
+  calSchedule:             null,
 };
 
 // drag state shared between desktop and touch handlers
@@ -293,13 +301,16 @@ function loadState() {
       state.announcements      = saved.announcements      || [];
       state.noteCategoryOrder  = saved.noteCategoryOrder  || [];
       state.linkCategoryOrder  = saved.linkCategoryOrder  || [];
+      state.calSchedule        = saved.calSchedule        || JSON.parse(JSON.stringify(DEFAULT_CAL_SCHEDULE));
     } else {
       state.reels = initReels();
       state.notes = initNotes();
+      state.calSchedule = JSON.parse(JSON.stringify(DEFAULT_CAL_SCHEDULE));
     }
   } catch (_) {
     state.reels = initReels();
     state.notes = initNotes();
+    state.calSchedule = JSON.parse(JSON.stringify(DEFAULT_CAL_SCHEDULE));
   }
 }
 
@@ -313,6 +324,7 @@ function saveState() {
       announcements:       state.announcements,
       noteCategoryOrder:   state.noteCategoryOrder,
       linkCategoryOrder:   state.linkCategoryOrder,
+      calSchedule:         state.calSchedule,
     }));
   } catch (_) {}
 }
@@ -597,6 +609,96 @@ function navigateToPostDate(dateStr) {
   }, 150);
 }
 
+// =============================================
+// SCHEDULE EDIT
+// =============================================
+
+let _schedDraft = null;
+
+function openScheduleEdit() {
+  _schedDraft = JSON.parse(JSON.stringify(state.calSchedule || DEFAULT_CAL_SCHEDULE));
+  renderScheduleEditModal();
+  document.getElementById('schedule-edit-modal').classList.remove('is-hidden');
+}
+
+function closeScheduleEdit() {
+  document.getElementById('schedule-edit-modal').classList.add('is-hidden');
+  _schedDraft = null;
+}
+
+function renderScheduleEditModal() {
+  const el = document.getElementById('schedule-edit-body');
+  if (!el) return;
+  let html = '';
+  _schedDraft.forEach((entry, idx) => {
+    html += `<div class="sch-entry">
+      <div class="sch-entry-head">
+        <span class="sch-entry-title">【${entry.day}日〆切】</span>
+        <button class="sch-del-entry" onclick="schedDeleteEntry(${idx})">〆切削除</button>
+      </div>
+      ${entry.items.map((item, iIdx) => `
+        <div class="sch-item-row">
+          <span class="sch-item-dot">・</span>
+          <input type="text" class="sch-item-input" value="${esc(item)}"
+            data-idx="${idx}" data-iidx="${iIdx}"
+            oninput="schedUpdateItem(${idx},${iIdx},this.value)"
+            placeholder="項目名を入力">
+          <button class="sch-item-del" onclick="schedDeleteItem(${idx},${iIdx})">✕</button>
+        </div>`).join('')}
+      <button class="sch-add-item" onclick="schedAddItem(${idx})">＋ 項目追加</button>
+    </div>`;
+  });
+  el.innerHTML = html;
+}
+
+function schedUpdateItem(entryIdx, itemIdx, value) {
+  if (_schedDraft[entryIdx]) _schedDraft[entryIdx].items[itemIdx] = value;
+}
+
+function schedDeleteItem(entryIdx, itemIdx) {
+  _schedDraft[entryIdx].items.splice(itemIdx, 1);
+  renderScheduleEditModal();
+}
+
+function schedAddItem(entryIdx) {
+  _schedDraft[entryIdx].items.push('');
+  renderScheduleEditModal();
+  const inputs = document.querySelectorAll(`.sch-item-input[data-idx="${entryIdx}"]`);
+  if (inputs.length) inputs[inputs.length - 1].focus();
+}
+
+function schedDeleteEntry(entryIdx) {
+  _schedDraft.splice(entryIdx, 1);
+  renderScheduleEditModal();
+}
+
+function schedAddEntry() {
+  const input = document.getElementById('new-dl-day');
+  const day = parseInt(input.value);
+  if (!day || day < 1 || day > 31) { input.focus(); return; }
+  _schedDraft.push({ id: uid(), day, items: [''] });
+  _schedDraft.sort((a, b) => a.day - b.day);
+  input.value = '';
+  renderScheduleEditModal();
+}
+
+function saveScheduleEdit() {
+  // Collect latest input values
+  document.querySelectorAll('.sch-item-input').forEach(inp => {
+    const idx  = parseInt(inp.dataset.idx);
+    const iidx = parseInt(inp.dataset.iidx);
+    if (_schedDraft[idx]) _schedDraft[idx].items[iidx] = inp.value;
+  });
+  // Filter empty
+  _schedDraft.forEach(e => { e.items = e.items.filter(s => s.trim() !== ''); });
+  _schedDraft = _schedDraft.filter(e => e.items.length > 0);
+  state.calSchedule = _schedDraft;
+  saveState();
+  renderCalendarView();
+  closeScheduleEdit();
+  showToast('スケジュールを保存しました');
+}
+
 function renderCalendarView() {
   const el = document.getElementById('home-calendar-card');
   if (!el) return;
@@ -609,10 +711,12 @@ function renderCalendarView() {
   const firstDow    = new Date(year, month, 1).getDay(); // 0=Sun
   const startOffset = firstDow === 0 ? 6 : firstDow - 1; // Mon=col0
 
-  const dl05 = toDateStrLocal(getEffectiveDeadline(year, month, 5));
-  const dl10 = toDateStrLocal(getEffectiveDeadline(year, month, 10));
-  const dl15 = toDateStrLocal(getEffectiveDeadline(year, month, 15));
-  const dl20 = toDateStrLocal(getEffectiveDeadline(year, month, 20));
+  const sched = state.calSchedule || DEFAULT_CAL_SCHEDULE;
+  const dlDates = {};
+  sched.forEach(entry => {
+    const ds = toDateStrLocal(getEffectiveDeadline(year, month, entry.day));
+    dlDates[ds] = entry;
+  });
 
   const DOW_LABELS   = ['月', '火', '水', '木', '金', '土', '日'];
   const DOW_CLASSES  = ['', '', '', '', '', 'sat', 'sun'];
@@ -653,10 +757,14 @@ function renderCalendarView() {
     // 更新日: Mon/Tue/Fri/Sat/Sun + holiday eves + holidays
     if (dow === 0 || dow === 1 || dow === 2 || dow === 5 || dow === 6 || isEve || holiday)
       labels += `<span class="cal-label">更新日</span>`;
-    if (ds === dl05) labels += `<span class="cal-label cal-deadline">【5日〆切】見本動画撮影</span>`;
-    if (ds === dl10) labels += `<span class="cal-label cal-deadline">【10日〆切】月リール①編集</span>`;
-    if (ds === dl15) labels += `<span class="cal-label cal-deadline">【15日〆切】月リール②編集</span>`;
-    if (ds === dl20) labels += `<span class="cal-label cal-deadline">【20日〆切】来月台本・見本動画シェア、再来月動画決定</span>`;
+    // Deadlines from calSchedule
+    const dlEntry = dlDates[ds];
+    if (dlEntry) {
+      labels += `<span class="cal-label cal-deadline">【${dlEntry.day}日〆切】</span>`;
+      dlEntry.items.forEach(item => {
+        labels += `<span class="cal-label cal-deadline-item">・${esc(item)}</span>`;
+      });
+    }
 
     // Tasks with postDate on this day
     const tasks = state.tasks.filter(t =>
@@ -687,7 +795,10 @@ function renderCalendarView() {
 
   el.innerHTML = `
     <div class="cal-toolbar">
-      <div class="card-title" style="margin-bottom:0">📅 投稿カレンダー</div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <span class="card-title" style="margin-bottom:0">📅 投稿カレンダー</span>
+        <button class="cal-edit-btn" onclick="openScheduleEdit()">⚙ 編集</button>
+      </div>
       <div class="cal-month-nav">
         <button class="cal-nav-btn" onclick="calPrevMonth()">‹ 前月</button>
         <span class="cal-month-title">${year}年${MONTH_NAMES[month]}</span>
@@ -698,7 +809,8 @@ function renderCalendarView() {
     <div class="cal-legend">
       <span class="cal-legend-title">凡例</span>
       <span class="cal-label">更新日</span>
-      <span class="cal-label cal-deadline">【〆切】内容</span>
+      <span class="cal-label cal-deadline">【〆切】</span>
+      <span class="cal-label cal-deadline-item">・内容</span>
     </div>`;
 }
 

@@ -374,6 +374,29 @@
     </div>
   </div>
 
+  <!-- ===== SCHEDULE EDIT MODAL ===== -->
+  <div id="schedule-edit-modal" class="modal is-hidden">
+    <div class="modal-backdrop" onclick="closeScheduleEdit()"></div>
+    <div class="modal-sheet">
+      <div class="modal-handle"></div>
+      <div class="modal-header">
+        <h3>スケジュール編集</h3>
+        <button class="modal-close-btn" onclick="closeScheduleEdit()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div id="schedule-edit-body"></div>
+        <div class="sch-add-entry-row">
+          <span class="sch-add-entry-label">〆切日を追加</span>
+          <input type="number" id="new-dl-day" min="1" max="31" placeholder="日（例：5）" class="sch-day-input">
+          <button class="sch-add-entry-btn" onclick="schedAddEntry()">追加</button>
+        </div>
+      </div>
+      <div class="sch-footer">
+        <button class="btn-primary" onclick="saveScheduleEdit()">保存する</button>
+      </div>
+    </div>
+  </div>
+
   <!-- ===== TOAST ===== -->
   <div id="toast" class="toast is-hidden"></div>
 
