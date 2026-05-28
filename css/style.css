@@ -922,6 +922,29 @@ body {
 }
 
 /* =============================================
+   COMPLETE VIEW (ステータス 完了)
+   ============================================= */
+
+#status-content[data-view="complete"] {
+  display: flex; flex-direction: column; gap: 0;
+}
+.done-platform-group {
+  display: flex; flex-direction: column; gap: 5px;
+  margin-bottom: 8px;
+}
+.done-task-card {
+  background: var(--card);
+  border-radius: var(--r-sm);
+  padding: 9px 12px;
+  border: 1px solid var(--border);
+  cursor: pointer;
+}
+.done-task-card:hover { background: var(--card-soft); }
+.done-card-title {
+  font-size: 0.86rem; font-weight: 700; word-break: break-word;
+}
+
+/* =============================================
    LINKS PAGE
    ============================================= */
 

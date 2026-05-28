@@ -532,7 +532,8 @@ function renderTaskCards() {
   const el   = document.getElementById('status-content');
   const isPlatformView = state.statusFilter === '投稿' || state.statusFilter === '広告';
   const isCategoryView = !!STATUS_CATEGORIES[state.statusFilter];
-  el.dataset.view = isPlatformView ? 'platform' : (isCategoryView ? 'category' : 'list');
+  const isCompleteView = state.statusFilter === '完了';
+  el.dataset.view = isPlatformView ? 'platform' : (isCategoryView ? 'category' : (isCompleteView ? 'complete' : 'list'));
 
   if (!list.length) {
     el.innerHTML = `<div class="empty-state">
@@ -550,6 +551,11 @@ function renderTaskCards() {
 
   if (isCategoryView) {
     renderStatusCategoryView(list, el);
+    return;
+  }
+
+  if (isCompleteView) {
+    renderStatusCompleteView(list, el);
     return;
   }
 
@@ -625,6 +631,104 @@ function renderStatusPlatformView(list, el) {
 
   el.innerHTML = html;
   setupStatusPlatformDrag();
+}
+
+function renderStatusCompleteView(list, el) {
+  const datedTasks   = list.filter(t => t.postDate);
+  const undatedTasks = list.filter(t => !t.postDate);
+
+  function doneCardHtml(task) {
+    return `<div class="done-task-card" onclick="openEditTask('${task.id}')">
+      <span class="done-card-title">${esc(task.title)}</span>
+    </div>`;
+  }
+
+  const weekMap = new Map();
+  datedTasks.forEach(task => {
+    const monday  = getMondayOfWeek(task.postDate);
+    const weekKey = toDateStrLocal(monday);
+    if (!weekMap.has(weekKey)) weekMap.set(weekKey, { weekStart: monday, dates: new Map() });
+    const wk = weekMap.get(weekKey);
+    if (!wk.dates.has(task.postDate)) wk.dates.set(task.postDate, new Map());
+    const dm = wk.dates.get(task.postDate);
+    const pids = (task.platforms || []).filter(pid => PLATFORMS.find(p => p.id === pid));
+    if (pids.length) {
+      pids.forEach(pid => { if (!dm.has(pid)) dm.set(pid, []); dm.get(pid).push(task); });
+    } else {
+      if (!dm.has('__none__')) dm.set('__none__', []);
+      dm.get('__none__').push(task);
+    }
+  });
+
+  const sortedWeeks = [...weekMap.entries()].sort((a, b) => b[0].localeCompare(a[0]));
+  let html = '';
+
+  sortedWeeks.forEach(([weekKey, wkData]) => {
+    const sortedDates = [...wkData.dates.entries()].sort((a, b) => b[0].localeCompare(a[0]));
+    let datesHtml = '';
+
+    sortedDates.forEach(([dateStr, platformMap]) => {
+      let platformsHtml = '';
+      PLATFORMS.forEach(platform => {
+        const tasks = platformMap.get(platform.id) || [];
+        if (!tasks.length) return;
+        platformsHtml += `<div class="done-platform-group">
+          <div class="post-platform-label">${platform.name}</div>
+          ${tasks.map(doneCardHtml).join('')}
+        </div>`;
+      });
+      const noPlatTasks = platformMap.get('__none__') || [];
+      if (noPlatTasks.length) {
+        platformsHtml += `<div class="done-platform-group">
+          <div class="post-platform-label">未設定</div>
+          ${noPlatTasks.map(doneCardHtml).join('')}
+        </div>`;
+      }
+      datesHtml += `<div class="post-date-section" data-date="${dateStr}">
+        <div class="post-date-label">${formatDateLabel(dateStr)}</div>
+        ${platformsHtml}
+      </div>`;
+    });
+
+    html += `<div class="post-week-group" data-week-start="${weekKey}">
+      <div class="post-week-label">${getWeekLabel(wkData.weekStart)}</div>
+      ${datesHtml}
+    </div>`;
+  });
+
+  if (undatedTasks.length) {
+    const undatedByPlatform = new Map();
+    PLATFORMS.forEach(p => undatedByPlatform.set(p.id, []));
+    const noPlat = [];
+    undatedTasks.forEach(task => {
+      const pids = (task.platforms || []).filter(pid => PLATFORMS.find(p => p.id === pid));
+      if (pids.length) pids.forEach(pid => undatedByPlatform.get(pid)?.push(task));
+      else noPlat.push(task);
+    });
+    let undatedHtml = '';
+    PLATFORMS.forEach(platform => {
+      const tasks = undatedByPlatform.get(platform.id) || [];
+      if (!tasks.length) return;
+      undatedHtml += `<div class="done-platform-group">
+        <div class="post-platform-label">${platform.name}</div>
+        ${tasks.map(doneCardHtml).join('')}
+      </div>`;
+    });
+    if (noPlat.length) {
+      undatedHtml += `<div class="done-platform-group">
+        <div class="post-platform-label">未設定</div>
+        ${noPlat.map(doneCardHtml).join('')}
+      </div>`;
+    }
+    if (undatedHtml) {
+      html += `<div class="post-week-group post-unassigned-group">
+        <div class="post-week-label">未振り分け</div>
+        ${undatedHtml}
+      </div>`;
+    }
+  }
+
+  el.innerHTML = html;
 }
 
 function renderStatusCategoryView(list, el) {
