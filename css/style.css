@@ -634,7 +634,8 @@ body {
    STATUS PAGE — PLATFORM VIEW (投稿 / 広告)
    ============================================= */
 
-#status-content[data-view="platform"] {
+#status-content[data-view="platform"],
+#status-content[data-view="category"] {
   display: flex;
   flex-direction: column;
   gap: 0;
@@ -672,6 +673,12 @@ body {
 }
 .sp-card.is-dragging { opacity: 0.4; }
 .sp-card.drag-over   { border-top: 2px solid var(--primary); }
+.sp-section.drag-over .sp-cards {
+  outline: 2px dashed var(--primary);
+  outline-offset: -2px;
+  background: var(--primary-lt);
+  border-radius: var(--r-sm);
+}
 
 .sp-card-title {
   flex: 1;
@@ -692,6 +699,12 @@ body {
   #status-content[data-view="platform"] {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
+    align-items: start;
+    gap: 16px;
+  }
+  #status-content[data-view="category"] {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
     align-items: start;
     gap: 16px;
   }

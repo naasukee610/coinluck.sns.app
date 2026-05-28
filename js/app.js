@@ -6,16 +6,24 @@
 // CONFIG
 // =============================================
 
-const STATUSES = ['撮影中', 'ゆっきー', 'せい', 'ともちん', '投稿', '広告', '完了'];
+const STATUSES = ['撮影中', 'ゆっきー', 'せい', 'ともちん', 'な', '投稿', '広告', '完了'];
 
 const STATUS_STYLE = {
   '撮影中':  { bg: '#F2EFEC', text: '#7A7068', border: '#C8C0B8' },
   'ゆっきー':{ bg: '#F5ECEE', text: '#8C5468', border: '#CCA8B4' },
   'せい':    { bg: '#E2EDE6', text: '#2D6045', border: '#80AA8E' },
   'ともちん':{ bg: '#F5EDD6', text: '#7A5E1C', border: '#C8A848' },
+  'な':      { bg: '#EAE8F5', text: '#4A4080', border: '#9B94CC' },
   '投稿':    { bg: '#EAE6E2', text: '#6B6159', border: '#BCB4AC' },
   '広告':    { bg: '#F2EFEC', text: '#7A7068', border: '#C8C0B8' },
   '完了':    { bg: '#EAE6E2', text: '#6B6159', border: '#BCB4AC' },
+};
+
+const STATUS_CATEGORIES = {
+  'ゆっきー': ['編集', 'サムネイル', '音源'],
+  'せい':     ['編集', '音源'],
+  'ともちん': ['編集', 'サムネイル', '音源'],
+  'な':       ['編集'],
 };
 
 const STORES = ['仙台', '岐阜', '札幌', '広島', '東京', '福岡'];
@@ -521,7 +529,8 @@ function renderTaskCards() {
   const list = state.tasks.filter(t => t.status === state.statusFilter);
   const el   = document.getElementById('status-content');
   const isPlatformView = state.statusFilter === '投稿' || state.statusFilter === '広告';
-  el.dataset.view = isPlatformView ? 'platform' : 'list';
+  const isCategoryView = !!STATUS_CATEGORIES[state.statusFilter];
+  el.dataset.view = isPlatformView ? 'platform' : (isCategoryView ? 'category' : 'list');
 
   if (!list.length) {
     el.innerHTML = `<div class="empty-state">
@@ -534,6 +543,11 @@ function renderTaskCards() {
 
   if (isPlatformView) {
     renderStatusPlatformView(list, el);
+    return;
+  }
+
+  if (isCategoryView) {
+    renderStatusCategoryView(list, el);
     return;
   }
 
@@ -585,7 +599,7 @@ function renderStatusPlatformView(list, el) {
       ? `<button class="advance-btn" onclick="advanceTaskTo('${task.id}','広告');event.stopPropagation()">→ 広告</button>
          <button class="advance-btn" onclick="advanceTaskTo('${task.id}','完了');event.stopPropagation()">→ 完了</button>`
       : `<button class="advance-btn" onclick="advanceTaskTo('${task.id}','完了');event.stopPropagation()">→ 完了</button>`;
-    return `<div class="sp-card" data-task-id="${task.id}" draggable="true">
+    return `<div class="sp-card" data-task-id="${task.id}" draggable="true" onclick="openEditTask('${task.id}')">
       <span class="sp-card-title">${esc(task.title)}</span>
       <div class="sp-card-btns" onclick="event.stopPropagation()">${advBtns}</div>
     </div>`;
@@ -609,6 +623,219 @@ function renderStatusPlatformView(list, el) {
 
   el.innerHTML = html;
   setupStatusPlatformDrag();
+}
+
+function renderStatusCategoryView(list, el) {
+  const categories = STATUS_CATEGORIES[state.statusFilter] || [];
+  const byCat = new Map();
+  categories.forEach(c => byCat.set(c, []));
+  const uncategorized = [];
+
+  list.forEach(task => {
+    if (task.category && byCat.has(task.category)) byCat.get(task.category).push(task);
+    else uncategorized.push(task);
+  });
+
+  function catCardHtml(task) {
+    let advBtns = '';
+    if (state.statusFilter === 'ゆっきー') {
+      advBtns = `<button class="advance-btn" onclick="advanceTaskTo('${task.id}','せい');event.stopPropagation()">→ せい</button>
+                 <button class="advance-btn" onclick="advanceTaskTo('${task.id}','ともちん');event.stopPropagation()">→ ともちん</button>`;
+    } else {
+      const next = getNextStatus(state.statusFilter);
+      if (next) advBtns = `<button class="advance-btn" onclick="advanceTaskTo('${task.id}','${esc(next)}');event.stopPropagation()">→ ${esc(next)}</button>`;
+    }
+    return `<div class="sp-card" data-task-id="${task.id}" draggable="true" onclick="openEditTask('${task.id}')">
+      <span class="sp-card-title">${esc(task.title)}</span>
+      <div class="sp-card-btns" onclick="event.stopPropagation()">${advBtns}</div>
+    </div>`;
+  }
+
+  let html = '';
+  categories.forEach(cat => {
+    const tasks = byCat.get(cat) || [];
+    html += `<div class="sp-section" data-category="${esc(cat)}">
+      <div class="sp-label">${esc(cat)}</div>
+      <div class="sp-cards">${tasks.map(catCardHtml).join('')}</div>
+    </div>`;
+  });
+
+  if (uncategorized.length) {
+    html += `<div class="sp-section" data-category="__none__">
+      <div class="sp-label">未分類</div>
+      <div class="sp-cards">${uncategorized.map(catCardHtml).join('')}</div>
+    </div>`;
+  }
+
+  el.innerHTML = html;
+  setupStatusCategoryDrag();
+}
+
+function setupStatusCategoryDrag() {
+  let dragTaskId = null, dragSrcCat = null;
+  let longTimer = null, touchItem = null, touchClone = null, offX = 0, offY = 0;
+
+  const chips = document.querySelectorAll('.filter-chip[data-status]');
+
+  function clearOver() {
+    document.querySelectorAll('.sp-card.drag-over, .sp-section.drag-over')
+      .forEach(el => el.classList.remove('drag-over'));
+  }
+
+  document.querySelectorAll('.sp-card[data-task-id]').forEach(card => {
+    const taskId  = card.dataset.taskId;
+    const section = card.closest('.sp-section');
+    const fromCat = section?.dataset.category || '__none__';
+
+    card.addEventListener('dragstart', e => {
+      dragTaskId = taskId; dragSrcCat = fromCat;
+      card.classList.add('is-dragging');
+      e.dataTransfer.effectAllowed = 'move';
+      chips.forEach(c => c.classList.add('is-drop-target'));
+    });
+    card.addEventListener('dragend', () => {
+      card.classList.remove('is-dragging');
+      clearOver();
+      chips.forEach(c => c.classList.remove('is-drop-target', 'drag-over'));
+      dragTaskId = null;
+    });
+    card.addEventListener('dragover', e => {
+      if (!dragTaskId || taskId === dragTaskId) return;
+      e.preventDefault(); clearOver(); card.classList.add('drag-over');
+    });
+    card.addEventListener('drop', e => {
+      e.preventDefault();
+      if (!dragTaskId || taskId === dragTaskId) return;
+      const toCat = card.closest('.sp-section')?.dataset.category || '__none__';
+      clearOver(); handleCategoryDrop(dragTaskId, dragSrcCat, toCat, taskId);
+    });
+
+    card.addEventListener('touchstart', e => {
+      const touch = e.touches[0];
+      longTimer = setTimeout(() => {
+        touchItem = card; dragTaskId = taskId; dragSrcCat = fromCat;
+        card.classList.add('is-dragging');
+        const rect = card.getBoundingClientRect();
+        offX = touch.clientX - rect.left; offY = touch.clientY - rect.top;
+        touchClone = card.cloneNode(true);
+        touchClone.className += ' task-drag-clone';
+        touchClone.style.cssText += `;width:${rect.width}px;top:${rect.top}px;left:${rect.left}px;`;
+        document.body.appendChild(touchClone);
+        chips.forEach(c => c.classList.add('is-drop-target'));
+        navigator.vibrate?.(30);
+      }, 500);
+    }, { passive: true });
+
+    card.addEventListener('touchmove', e => {
+      if (!touchItem) { clearTimeout(longTimer); return; }
+      e.preventDefault();
+      const touch = e.touches[0];
+      if (touchClone) {
+        touchClone.style.top  = (touch.clientY - offY) + 'px';
+        touchClone.style.left = (touch.clientX - offX) + 'px';
+      }
+      clearOver();
+      chips.forEach(c => c.classList.remove('drag-over'));
+      const pt = document.elementFromPoint(touch.clientX, touch.clientY);
+      const chip  = pt?.closest('.filter-chip[data-status]');
+      const tCard = pt?.closest('.sp-card[data-task-id]');
+      const sec   = pt?.closest('.sp-section[data-category]');
+      if (chip && chip.dataset.status !== state.statusFilter) chip.classList.add('drag-over');
+      else if (tCard && tCard !== touchItem) tCard.classList.add('drag-over');
+      else if (sec) sec.classList.add('drag-over');
+    }, { passive: false });
+
+    card.addEventListener('touchend', e => {
+      clearTimeout(longTimer);
+      if (!touchItem) return;
+      const touch = e.changedTouches[0];
+      touchClone?.remove(); touchClone = null;
+      touchItem.classList.remove('is-dragging');
+      chips.forEach(c => c.classList.remove('is-drop-target', 'drag-over'));
+      clearOver();
+      const pt    = document.elementFromPoint(touch.clientX, touch.clientY);
+      const chip  = pt?.closest('.filter-chip[data-status]');
+      const tCard = pt?.closest('.sp-card[data-task-id]');
+      const sec   = pt?.closest('.sp-section[data-category]');
+      if (chip) {
+        const s = chip.dataset.status;
+        if (s && s !== state.statusFilter) changeTaskStatus(dragTaskId, s);
+      } else if (tCard && tCard !== touchItem) {
+        const toCat = tCard.closest('.sp-section')?.dataset.category || '__none__';
+        handleCategoryDrop(dragTaskId, dragSrcCat, toCat, tCard.dataset.taskId);
+      } else if (sec) {
+        handleCategoryDrop(dragTaskId, dragSrcCat, sec.dataset.category, null);
+      }
+      touchItem = null; dragTaskId = null;
+    }, { passive: true });
+
+    card.addEventListener('touchcancel', () => {
+      clearTimeout(longTimer);
+      touchClone?.remove(); touchClone = null;
+      if (touchItem) { touchItem.classList.remove('is-dragging'); touchItem = null; }
+      chips.forEach(c => c.classList.remove('is-drop-target', 'drag-over'));
+      clearOver(); dragTaskId = null;
+    }, { passive: true });
+  });
+
+  document.querySelectorAll('.sp-section[data-category]').forEach(section => {
+    section.addEventListener('dragover', e => {
+      if (!dragTaskId || e.target?.closest('.sp-card[data-task-id]')) return;
+      e.preventDefault(); clearOver(); section.classList.add('drag-over');
+    });
+    section.addEventListener('dragleave', e => {
+      if (!e.relatedTarget || !section.contains(e.relatedTarget)) section.classList.remove('drag-over');
+    });
+    section.addEventListener('drop', e => {
+      e.preventDefault();
+      if (!dragTaskId) return;
+      clearOver(); handleCategoryDrop(dragTaskId, dragSrcCat, section.dataset.category, null);
+    });
+  });
+
+  chips.forEach(chip => {
+    chip.addEventListener('dragover', e => {
+      if (!dragTaskId) return;
+      const s = chip.dataset.status;
+      if (s && s !== state.statusFilter) {
+        e.preventDefault();
+        chips.forEach(c => c.classList.remove('drag-over'));
+        chip.classList.add('drag-over');
+      }
+    });
+    chip.addEventListener('dragleave', () => chip.classList.remove('drag-over'));
+    chip.addEventListener('drop', e => {
+      e.preventDefault();
+      const s = chip.dataset.status;
+      if (!dragTaskId || !s || s === state.statusFilter) return;
+      changeTaskStatus(dragTaskId, s);
+    });
+  });
+}
+
+function handleCategoryDrop(taskId, fromCat, toCat, insertBeforeTaskId) {
+  const task = state.tasks.find(t => t.id === taskId);
+  if (!task) return;
+  let changed = false;
+
+  if (toCat && toCat !== '__none__' && toCat !== fromCat) {
+    task.category  = toCat;
+    task.updatedAt = new Date().toISOString();
+    changed = true;
+  }
+
+  if (insertBeforeTaskId && insertBeforeTaskId !== taskId) {
+    const si = state.tasks.findIndex(t => t.id === taskId);
+    const ti = state.tasks.findIndex(t => t.id === insertBeforeTaskId);
+    if (si !== -1 && ti !== -1 && si !== ti) {
+      const [moved] = state.tasks.splice(si, 1);
+      state.tasks.splice(state.tasks.findIndex(t => t.id === insertBeforeTaskId), 0, moved);
+      if (!changed) task.updatedAt = new Date().toISOString();
+      changed = true;
+    }
+  }
+
+  if (changed) { saveState(); refreshCurrentTab(); }
 }
 
 function advanceTaskTo(id, targetStatus) {
@@ -650,15 +877,18 @@ function advanceTaskTo(id, targetStatus) {
     return;
   }
 
-  const prevStatus  = task.status;
-  const prevUpdated = task.updatedAt;
+  const prevStatus   = task.status;
+  const prevUpdated  = task.updatedAt;
+  const prevCategory = task.category;
   task.status    = targetStatus;
+  task.category  = STATUS_CATEGORIES[targetStatus]?.[0] ?? null;
   task.updatedAt = new Date().toISOString();
   if (state.activeTab === 'status') state.statusFilter = targetStatus;
   saveState();
   refreshCurrentTab();
   showToast(`→ ${targetStatus} に進みました`, () => {
     task.status    = prevStatus;
+    task.category  = prevCategory;
     task.updatedAt = prevUpdated;
     if (state.activeTab === 'status') state.statusFilter = prevStatus;
     saveState();
@@ -694,6 +924,7 @@ function quickDeleteTask(id) {
 
 function setupTaskDrag() {
   if (state.statusFilter === '投稿' || state.statusFilter === '広告') return;
+  if (STATUS_CATEGORIES[state.statusFilter]) return;
   const cards = document.querySelectorAll('.task-card[data-task-id]');
   const chips = document.querySelectorAll('.filter-chip[data-status]');
 
