@@ -490,6 +490,15 @@ body {
 .note-pin-btn:hover { opacity: 1; }
 .note-item.is-pinned .note-pin-btn { opacity: 1; }
 
+.note-del-btn {
+  background: none; border: none; cursor: pointer;
+  font-size: 0.85rem; flex-shrink: 0;
+  padding: 2px 4px; border-radius: 4px;
+  opacity: 0.35; color: #A84040;
+  transition: opacity 0.1s;
+}
+.note-del-btn:hover, .note-del-btn:active { opacity: 1; }
+
 .note-drag-clone {
   position: fixed; z-index: 500; opacity: 0.9;
   pointer-events: none;
@@ -730,13 +739,20 @@ body {
    ============================================= */
 
 .post-task-row {
-  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  display: flex; align-items: center; gap: 8px;
   padding: 9px 0;
   border-bottom: 1px solid var(--border);
-  cursor: pointer;
+  touch-action: pan-y;
 }
 .post-task-row:last-child { border-bottom: none; }
-.post-task-info { flex: 1; min-width: 0; }
+.post-task-row.is-dragging { opacity: 0.4; }
+.post-task-row.drag-over { border-top: 2px solid var(--primary) !important; }
+.post-drag-handle {
+  font-size: 1rem; color: var(--border); flex-shrink: 0;
+  cursor: grab; user-select: none; letter-spacing: -1px;
+}
+.post-drag-handle:active { cursor: grabbing; }
+.post-task-info { flex: 1; min-width: 0; cursor: pointer; }
 .post-task-title { font-size: 0.85rem; font-weight: 700; }
 .post-task-store { font-size: 0.68rem; color: var(--muted); margin-top: 2px; }
 
@@ -755,12 +771,19 @@ body {
   border-radius: var(--r-sm);
   padding: 11px 13px;
   border: 1px solid var(--border);
-  display: flex; align-items: center; gap: 11px;
-  cursor: pointer; transition: transform 0.1s;
+  display: flex; align-items: center; gap: 9px;
+  transition: transform 0.1s;
 }
 .link-item:active { transform: scale(0.985); }
+.link-item.is-dragging { opacity: 0.45; }
+.link-item.drag-over { border-top: 2px solid var(--primary) !important; box-shadow: none !important; }
+.link-drag-handle {
+  font-size: 1rem; color: var(--border); flex-shrink: 0;
+  cursor: grab; user-select: none; letter-spacing: -1px;
+}
+.link-drag-handle:active { cursor: grabbing; }
 .link-type-icon { font-size: 1rem; flex-shrink: 0; }
-.link-info { flex: 1; min-width: 0; }
+.link-info { flex: 1; min-width: 0; cursor: pointer; }
 .link-label { font-size: 0.85rem; font-weight: 700; }
 .link-preview {
   font-size: 0.7rem; color: var(--muted); margin-top: 2px;

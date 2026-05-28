@@ -315,8 +315,13 @@
         <form id="note-form" autocomplete="off">
           <input type="hidden" id="note-id">
           <div class="form-group">
+            <label for="note-category">カテゴリ（任意）</label>
+            <input type="text" id="note-category" placeholder="例：ルール、メモ" list="note-category-datalist">
+            <datalist id="note-category-datalist"></datalist>
+          </div>
+          <div class="form-group">
             <label for="note-content">内容 <span class="required">*</span></label>
-            <textarea id="note-content" placeholder="メモ・ルールなどを入力" rows="7" required></textarea>
+            <textarea id="note-content" placeholder="メモ・ルールなどを入力" rows="6" required></textarea>
           </div>
           <div class="form-group">
             <label class="checkbox-label">

@@ -173,6 +173,7 @@ function initNotes() {
     id: uid(),
     content: `${rule.icon} ${rule.name}\n${rule.rules.map(r => `・${r}`).join('\n')}`,
     pinned: false,
+    category: '投稿ルール',
     order: i,
     createdAt: new Date().toISOString(),
   }));
@@ -188,7 +189,9 @@ function loadState() {
       state.reels         = saved.reels  && saved.reels.length
         ? saved.reels.map(r => ({ year: 2026, type: 'monthly', ...r }))
         : initReels();
-      state.notes         = saved.notes  && saved.notes.length  ? saved.notes  : initNotes();
+      state.notes         = saved.notes  && saved.notes.length
+        ? saved.notes.map(n => ({ category: 'メモ', ...n }))
+        : initNotes();
       state.announcements = saved.announcements || [];
     } else {
       state.reels = initReels();
@@ -711,7 +714,7 @@ function reelCard(m) {
       </div>
       ${m.videos.map((v, i) => `
         <div class="reel-video-row" onclick="openEditVideoModal('${m.id}','${v.id}')" style="cursor:pointer">
-          <span class="reel-num reel-num--${i + 1}">${CIRCLED[i] || (i + 1)}</span>
+          <span class="reel-num reel-num--${i + 1}">${m.type === 'monthly' ? (CIRCLED[i] || (i + 1)) : '●'}</span>
           <div class="reel-row-info">
             <div class="reel-row-title">${esc(v.title)}</div>
             ${v.note ? `<div class="reel-row-note">📌 ${esc(v.note)}</div>` : ''}
@@ -814,8 +817,9 @@ function renderPosts() {
     return `<div class="card post-platform-section">
       <div class="card-title" style="color:${rule.color}">${rule.icon} ${rule.name} （${tasks.length}件）</div>
       ${tasks.map(task => `
-        <div class="post-task-row" onclick="openEditTask('${task.id}')">
-          <div class="post-task-info">
+        <div class="post-task-row" data-task-id="${task.id}" draggable="true">
+          <div class="post-drag-handle">⠿</div>
+          <div class="post-task-info" onclick="openEditTask('${task.id}')">
             <div class="post-task-title">${esc(task.title)}</div>
             ${task.store ? `<div class="post-task-store">📍 ${esc(task.store)}</div>` : ''}
           </div>
@@ -823,6 +827,79 @@ function renderPosts() {
         </div>`).join('')}
     </div>`;
   }).join('');
+
+  setupPostsDrag();
+}
+
+function setupPostsDrag() {
+  document.querySelectorAll('.post-platform-section').forEach(section => {
+    const rows = () => section.querySelectorAll('.post-task-row[data-task-id]');
+    let dragSrc = null;
+    let longTimer = null, touchDragItem = null, touchClone = null, offX = 0, offY = 0;
+
+    section.querySelectorAll('.post-task-row[data-task-id]').forEach(row => {
+      // Desktop drag
+      row.addEventListener('dragstart', e => {
+        dragSrc = row;
+        row.classList.add('is-dragging');
+        e.dataTransfer.effectAllowed = 'move';
+      });
+      row.addEventListener('dragend', () => {
+        row.classList.remove('is-dragging');
+        rows().forEach(r => r.classList.remove('drag-over'));
+        dragSrc = null;
+      });
+      row.addEventListener('dragover', e => {
+        if (!dragSrc || row === dragSrc) return;
+        e.preventDefault();
+        rows().forEach(r => r.classList.remove('drag-over'));
+        row.classList.add('drag-over');
+      });
+      row.addEventListener('drop', e => {
+        e.preventDefault();
+        if (!dragSrc || dragSrc === row) return;
+        reorderTasks(dragSrc.dataset.taskId, row.dataset.taskId);
+      });
+
+      // Touch drag (long press)
+      row.addEventListener('touchstart', e => {
+        const t = e.touches[0];
+        longTimer = setTimeout(() => {
+          touchDragItem = row;
+          row.classList.add('is-dragging');
+          const rect = row.getBoundingClientRect();
+          offX = t.clientX - rect.left; offY = t.clientY - rect.top;
+          touchClone = row.cloneNode(true);
+          touchClone.className += ' task-drag-clone';
+          touchClone.style.cssText += `;width:${rect.width}px;top:${rect.top}px;left:${rect.left}px;`;
+          document.body.appendChild(touchClone);
+          navigator.vibrate?.(30);
+        }, 500);
+      }, { passive: true });
+
+      row.addEventListener('touchmove', e => {
+        if (!touchDragItem) { clearTimeout(longTimer); return; }
+        e.preventDefault();
+        const t = e.touches[0];
+        if (touchClone) { touchClone.style.top = (t.clientY - offY) + 'px'; touchClone.style.left = (t.clientX - offX) + 'px'; }
+        rows().forEach(r => r.classList.remove('drag-over'));
+        for (const el of section.querySelectorAll('.post-task-row:not(.is-dragging)')) {
+          const r = el.getBoundingClientRect();
+          if (t.clientY >= r.top && t.clientY <= r.bottom) { el.classList.add('drag-over'); break; }
+        }
+      }, { passive: false });
+
+      row.addEventListener('touchend', () => {
+        clearTimeout(longTimer);
+        if (!touchDragItem) return;
+        touchClone?.remove(); touchClone = null;
+        touchDragItem.classList.remove('is-dragging');
+        const target = section.querySelector('.post-task-row.drag-over');
+        if (target) reorderTasks(touchDragItem.dataset.taskId, target.dataset.taskId);
+        touchDragItem = null;
+      }, { passive: true });
+    });
+  });
 }
 
 // =============================================
@@ -843,6 +920,15 @@ function renderNotes() {
   const pinned   = state.notes.filter(n => n.pinned);
   const unpinned = state.notes.filter(n => !n.pinned);
 
+  // Group unpinned notes by category (preserve insertion order)
+  const catOrder = [];
+  const catMap   = {};
+  unpinned.forEach(n => {
+    const cat = n.category || 'メモ';
+    if (!catMap[cat]) { catMap[cat] = []; catOrder.push(cat); }
+    catMap[cat].push(n);
+  });
+
   const noteHTML = (note) => `
     <div class="note-item${note.pinned ? ' is-pinned' : ''}" data-note-id="${note.id}" draggable="true">
       <div class="note-drag-handle">⠿</div>
@@ -852,103 +938,124 @@ function renderNotes() {
       <button class="note-pin-btn"
         onclick="toggleNotePin('${note.id}');event.stopPropagation()"
         title="${note.pinned ? 'ピン解除' : 'ピン留め'}">${note.pinned ? '📌' : '📍'}</button>
+      <button class="note-del-btn"
+        onclick="quickDeleteNote('${note.id}');event.stopPropagation()"
+        title="削除">🗑️</button>
     </div>`;
 
   let html = '';
   if (pinned.length) {
     html += `<div class="notes-section-label">📌 ピン留め</div>`;
     html += pinned.map(noteHTML).join('');
-    if (unpinned.length) html += `<div class="notes-section-label" style="margin-top:8px">メモ</div>`;
   }
-  html += `<div id="notes-drag-list">${unpinned.map(noteHTML).join('')}</div>`;
+  catOrder.forEach(cat => {
+    html += `<div class="notes-section-label" style="margin-top:${pinned.length || html ? 8 : 0}px">${esc(cat)}</div>`;
+    html += `<div class="notes-drag-list" data-category="${esc(cat)}">${catMap[cat].map(noteHTML).join('')}</div>`;
+  });
+  if (!catOrder.length && !pinned.length) {
+    html += `<div class="empty-state"><span class="empty-icon">📓</span><div class="empty-label">ノートがありません</div></div>`;
+  }
 
   el.innerHTML = html;
   setupNoteDrag();
 }
 
 function setupNoteDrag() {
-  const list = document.getElementById('notes-drag-list');
-  if (!list) return;
+  document.querySelectorAll('.notes-drag-list').forEach(list => {
+    let dragSrc = null;
+    let longTimer = null, touchDragItem = null, touchClone = null, touchOffsetY = 0;
 
-  let dragSrc = null;
+    const allItems = () => list.querySelectorAll('.note-item');
 
-  list.querySelectorAll('.note-item').forEach(item => {
-    item.addEventListener('dragstart', e => {
-      dragSrc = item;
-      item.classList.add('is-dragging');
-      e.dataTransfer.effectAllowed = 'move';
-    });
-    item.addEventListener('dragend', () => {
-      item.classList.remove('is-dragging');
-      list.querySelectorAll('.note-item').forEach(i => i.classList.remove('drag-over'));
-    });
-    item.addEventListener('dragover', e => {
-      e.preventDefault();
-      if (item !== dragSrc) {
-        list.querySelectorAll('.note-item').forEach(i => i.classList.remove('drag-over'));
-        item.classList.add('drag-over');
-      }
-    });
-    item.addEventListener('drop', e => {
-      e.preventDefault();
-      if (!dragSrc || dragSrc === item) return;
-      reorderNotes(dragSrc.dataset.noteId, item.dataset.noteId);
-    });
-  });
-
-  // Touch drag (long press)
-  let longTimer = null, touchDragItem = null, touchClone = null, touchOffsetY = 0;
-
-  list.querySelectorAll('.note-item').forEach(item => {
-    item.addEventListener('touchstart', e => {
-      const t = e.touches[0];
-      longTimer = setTimeout(() => {
-        touchDragItem = item;
+    list.querySelectorAll('.note-item').forEach(item => {
+      // Desktop drag
+      item.addEventListener('dragstart', e => {
+        dragSrc = item;
         item.classList.add('is-dragging');
-        const rect = item.getBoundingClientRect();
-        touchOffsetY = t.clientY - rect.top;
-        touchClone = item.cloneNode(true);
-        touchClone.classList.add('note-drag-clone');
-        touchClone.style.cssText += `;width:${rect.width}px;top:${rect.top}px;left:${rect.left}px;`;
-        document.body.appendChild(touchClone);
-        navigator.vibrate?.(30);
-      }, 500);
-    }, { passive: true });
+        e.dataTransfer.effectAllowed = 'move';
+      });
+      item.addEventListener('dragend', () => {
+        item.classList.remove('is-dragging');
+        allItems().forEach(i => i.classList.remove('drag-over'));
+        dragSrc = null;
+      });
+      item.addEventListener('dragover', e => {
+        if (!dragSrc || item === dragSrc) return;
+        e.preventDefault();
+        allItems().forEach(i => i.classList.remove('drag-over'));
+        item.classList.add('drag-over');
+      });
+      item.addEventListener('drop', e => {
+        e.preventDefault();
+        if (!dragSrc || dragSrc === item) return;
+        reorderNotes(dragSrc.dataset.noteId, item.dataset.noteId);
+      });
 
-    item.addEventListener('touchmove', e => {
-      if (!touchDragItem) { clearTimeout(longTimer); return; }
-      e.preventDefault();
-      const t = e.touches[0];
-      if (touchClone) touchClone.style.top = (t.clientY - touchOffsetY) + 'px';
-      list.querySelectorAll('.note-item').forEach(i => i.classList.remove('drag-over'));
-      for (const el of list.querySelectorAll('.note-item:not(.is-dragging)')) {
-        const r = el.getBoundingClientRect();
-        if (t.clientY >= r.top && t.clientY <= r.bottom) { el.classList.add('drag-over'); break; }
-      }
-    }, { passive: false });
+      // Touch drag (long press)
+      item.addEventListener('touchstart', e => {
+        const t = e.touches[0];
+        longTimer = setTimeout(() => {
+          touchDragItem = item;
+          item.classList.add('is-dragging');
+          const rect = item.getBoundingClientRect();
+          touchOffsetY = t.clientY - rect.top;
+          touchClone = item.cloneNode(true);
+          touchClone.classList.add('note-drag-clone');
+          touchClone.style.cssText += `;width:${rect.width}px;top:${rect.top}px;left:${rect.left}px;`;
+          document.body.appendChild(touchClone);
+          navigator.vibrate?.(30);
+        }, 500);
+      }, { passive: true });
 
-    item.addEventListener('touchend', () => {
-      clearTimeout(longTimer);
-      if (!touchDragItem) return;
-      touchClone?.remove(); touchClone = null;
-      touchDragItem.classList.remove('is-dragging');
-      const target = list.querySelector('.note-item.drag-over');
-      if (target) reorderNotes(touchDragItem.dataset.noteId, target.dataset.noteId);
-      touchDragItem = null;
-    }, { passive: true });
+      item.addEventListener('touchmove', e => {
+        if (!touchDragItem) { clearTimeout(longTimer); return; }
+        e.preventDefault();
+        const t = e.touches[0];
+        if (touchClone) touchClone.style.top = (t.clientY - touchOffsetY) + 'px';
+        allItems().forEach(i => i.classList.remove('drag-over'));
+        for (const el of list.querySelectorAll('.note-item:not(.is-dragging)')) {
+          const r = el.getBoundingClientRect();
+          if (t.clientY >= r.top && t.clientY <= r.bottom) { el.classList.add('drag-over'); break; }
+        }
+      }, { passive: false });
+
+      item.addEventListener('touchend', () => {
+        clearTimeout(longTimer);
+        if (!touchDragItem) return;
+        touchClone?.remove(); touchClone = null;
+        touchDragItem.classList.remove('is-dragging');
+        const target = list.querySelector('.note-item.drag-over');
+        if (target) reorderNotes(touchDragItem.dataset.noteId, target.dataset.noteId);
+        touchDragItem = null;
+      }, { passive: true });
+    });
   });
 }
 
 function reorderNotes(srcId, tgtId) {
-  const unpinned = state.notes.filter(n => !n.pinned);
-  const si = unpinned.findIndex(n => n.id === srcId);
-  const ti = unpinned.findIndex(n => n.id === tgtId);
+  const si = state.notes.findIndex(n => n.id === srcId);
+  const ti = state.notes.findIndex(n => n.id === tgtId);
   if (si === -1 || ti === -1) return;
-  const [moved] = unpinned.splice(si, 1);
-  unpinned.splice(ti, 0, moved);
-  state.notes = [...state.notes.filter(n => n.pinned), ...unpinned];
+  const [moved] = state.notes.splice(si, 1);
+  const newTi = state.notes.findIndex(n => n.id === tgtId);
+  state.notes.splice(newTi, 0, moved);
   saveState();
   renderNotes();
+}
+
+function quickDeleteNote(id) {
+  const note = state.notes.find(n => n.id === id);
+  if (!note) return;
+  const savedNote = { ...note };
+  const savedIdx  = state.notes.indexOf(note);
+  state.notes = state.notes.filter(n => n.id !== id);
+  saveState();
+  renderNotes();
+  showToast('ノートを削除しました', () => {
+    state.notes.splice(savedIdx, 0, savedNote);
+    saveState();
+    renderNotes();
+  });
 }
 
 function toggleNotePin(id) {
@@ -959,15 +1066,23 @@ function toggleNotePin(id) {
   renderNotes();
 }
 
+function refreshNoteCategoryDatalist() {
+  const cats = [...new Set(state.notes.map(n => n.category).filter(Boolean))];
+  const dl = document.getElementById('note-category-datalist');
+  if (dl) dl.innerHTML = cats.map(c => `<option value="${esc(c)}">`).join('');
+}
+
 function openAddNote() {
   state.editingNoteId = null;
   document.getElementById('note-modal-title').textContent = 'ノート追加';
-  document.getElementById('note-id').value      = '';
-  document.getElementById('note-content').value = '';
+  document.getElementById('note-id').value       = '';
+  document.getElementById('note-category').value = '';
+  document.getElementById('note-content').value  = '';
   document.getElementById('note-pinned').checked = false;
   document.getElementById('delete-note-btn').classList.add('is-hidden');
+  refreshNoteCategoryDatalist();
   document.getElementById('note-modal').classList.remove('is-hidden');
-  setTimeout(() => document.getElementById('note-content').focus(), 100);
+  setTimeout(() => document.getElementById('note-category').focus(), 100);
 }
 
 function openEditNote(id) {
@@ -976,9 +1091,11 @@ function openEditNote(id) {
   state.editingNoteId = id;
   document.getElementById('note-modal-title').textContent = 'ノート編集';
   document.getElementById('note-id').value       = id;
+  document.getElementById('note-category').value = note.category || '';
   document.getElementById('note-content').value  = note.content;
   document.getElementById('note-pinned').checked = note.pinned;
   document.getElementById('delete-note-btn').classList.remove('is-hidden');
+  refreshNoteCategoryDatalist();
   document.getElementById('note-modal').classList.remove('is-hidden');
 }
 
@@ -989,16 +1106,17 @@ function closeNoteModal() {
 
 function onSaveNote(e) {
   e.preventDefault();
-  const content = document.getElementById('note-content').value.trim();
+  const content  = document.getElementById('note-content').value.trim();
   if (!content) return;
-  const pinned = document.getElementById('note-pinned').checked;
+  const pinned   = document.getElementById('note-pinned').checked;
+  const category = document.getElementById('note-category').value.trim() || 'メモ';
 
   if (state.editingNoteId) {
     const note = state.notes.find(n => n.id === state.editingNoteId);
-    if (note) { note.content = content; note.pinned = pinned; }
+    if (note) { note.content = content; note.pinned = pinned; note.category = category; }
     showToast('ノートを更新しました');
   } else {
-    state.notes.push({ id: uid(), content, pinned, createdAt: new Date().toISOString() });
+    state.notes.push({ id: uid(), content, pinned, category, createdAt: new Date().toISOString() });
     showToast('ノートを追加しました');
   }
   saveState();
@@ -1032,25 +1150,116 @@ function renderLinks() {
     return;
   }
 
-  const cats = {};
+  // Preserve category insertion order
+  const catOrder = [];
+  const catMap   = {};
   state.links.forEach(link => {
     const c = link.category || 'その他';
-    (cats[c] = cats[c] || []).push(link);
+    if (!catMap[c]) { catMap[c] = []; catOrder.push(c); }
+    catMap[c].push(link);
   });
 
-  el.innerHTML = Object.entries(cats).map(([cat, links]) => `
-    <div class="link-category-group">
+  el.innerHTML = catOrder.map(cat => `
+    <div class="link-category-group" data-category="${esc(cat)}">
       <div class="link-cat-title">${esc(cat)}</div>
-      ${links.map(link => `
-        <div class="link-item" onclick="openEditLink('${link.id}')">
+      ${catMap[cat].map(link => `
+        <div class="link-item" data-link-id="${link.id}" draggable="true">
+          <div class="link-drag-handle">⠿</div>
           <div class="link-type-icon">${link.type === 'text' ? '📝' : '🔗'}</div>
-          <div class="link-info">
+          <div class="link-info" onclick="openEditLink('${link.id}')">
             <div class="link-label">${esc(link.label)}</div>
             <div class="link-preview">${esc(link.content)}</div>
           </div>
-          <button class="copy-btn" onclick="copyText(${JSON.stringify(link.content)});event.stopPropagation()">コピー</button>
+          <button class="copy-btn" onclick="copyText(${JSON.stringify(link.content)})">コピー</button>
         </div>`).join('')}
     </div>`).join('');
+
+  setupLinksDrag();
+}
+
+function reorderLinks(srcId, tgtId) {
+  const si = state.links.findIndex(l => l.id === srcId);
+  const ti = state.links.findIndex(l => l.id === tgtId);
+  if (si === -1 || ti === -1) return;
+  const srcCat = state.links[si].category;
+  const tgtCat = state.links[ti].category;
+  if (srcCat !== tgtCat) return;
+  const [moved] = state.links.splice(si, 1);
+  const newTi = state.links.findIndex(l => l.id === tgtId);
+  state.links.splice(newTi, 0, moved);
+  saveState();
+  renderLinks();
+}
+
+function setupLinksDrag() {
+  document.querySelectorAll('.link-category-group').forEach(group => {
+    const items = () => group.querySelectorAll('.link-item[data-link-id]');
+    let dragSrc = null;
+    let longTimer = null, touchDragItem = null, touchClone = null, offX = 0, offY = 0;
+
+    group.querySelectorAll('.link-item[data-link-id]').forEach(item => {
+      // Desktop drag
+      item.addEventListener('dragstart', e => {
+        dragSrc = item;
+        item.classList.add('is-dragging');
+        e.dataTransfer.effectAllowed = 'move';
+      });
+      item.addEventListener('dragend', () => {
+        item.classList.remove('is-dragging');
+        items().forEach(i => i.classList.remove('drag-over'));
+        dragSrc = null;
+      });
+      item.addEventListener('dragover', e => {
+        if (!dragSrc || item === dragSrc) return;
+        e.preventDefault();
+        items().forEach(i => i.classList.remove('drag-over'));
+        item.classList.add('drag-over');
+      });
+      item.addEventListener('drop', e => {
+        e.preventDefault();
+        if (!dragSrc || dragSrc === item) return;
+        reorderLinks(dragSrc.dataset.linkId, item.dataset.linkId);
+      });
+
+      // Touch drag (long press)
+      item.addEventListener('touchstart', e => {
+        const t = e.touches[0];
+        longTimer = setTimeout(() => {
+          touchDragItem = item;
+          item.classList.add('is-dragging');
+          const rect = item.getBoundingClientRect();
+          offX = t.clientX - rect.left; offY = t.clientY - rect.top;
+          touchClone = item.cloneNode(true);
+          touchClone.className += ' note-drag-clone';
+          touchClone.style.cssText += `;width:${rect.width}px;top:${rect.top}px;left:${rect.left}px;`;
+          document.body.appendChild(touchClone);
+          navigator.vibrate?.(30);
+        }, 500);
+      }, { passive: true });
+
+      item.addEventListener('touchmove', e => {
+        if (!touchDragItem) { clearTimeout(longTimer); return; }
+        e.preventDefault();
+        const t = e.touches[0];
+        if (touchClone) { touchClone.style.top = (t.clientY - offY) + 'px'; touchClone.style.left = (t.clientX - offX) + 'px'; }
+        items().forEach(i => i.classList.remove('drag-over'));
+        for (const el of group.querySelectorAll('.link-item:not(.is-dragging)')) {
+          const r = el.getBoundingClientRect();
+          if (t.clientY >= r.top && t.clientY <= r.bottom) { el.classList.add('drag-over'); break; }
+        }
+      }, { passive: false });
+
+      item.addEventListener('touchend', () => {
+        clearTimeout(longTimer);
+        if (!touchDragItem) return;
+        touchClone?.remove(); touchClone = null;
+        touchDragItem.classList.remove('is-dragging');
+        const target = group.querySelector('.link-item.drag-over');
+        if (target) reorderLinks(touchDragItem.dataset.linkId, target.dataset.linkId);
+        touchDragItem = null;
+      }, { passive: true });
+    });
+  });
 }
 
 // =============================================
