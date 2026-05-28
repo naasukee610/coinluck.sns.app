@@ -641,17 +641,20 @@ function renderCalendarView() {
     if (isSun || holiday) cls += ' is-sun';
     if (holiday)  cls += ' is-holiday';
 
+    // Inline holiday/event next to date number
+    let inlineExtra = '';
+    if (holiday) inlineExtra = `<span class="cal-holiday-inline">${esc(holiday)}</span>`;
+    else if (event) inlineExtra = `<span class="cal-event-inline">${esc(event)}</span>`;
+
+    // Labels (plain text, no backgrounds)
     let labels = '';
-    if (day >= 1  && day <= 7)  labels += `<div class="cal-label shooting">撮影</div>`;
-    if (day >= 8  && day <= 14) labels += `<div class="cal-label editing">編集</div>`;
-    if (dow === 5 || dow === 6 || isEve)
-      labels += `<div class="cal-label update">更新日</div>`;
-    if (dow === 0 || dow === 1 || dow === 2 || holiday)
-      labels += `<div class="cal-label supplement">補助更新</div>`;
-    if (ds === dl15) labels += `<div class="cal-label deadline">15日〆切</div>`;
-    if (ds === dl20) labels += `<div class="cal-label deadline">20日〆切</div>`;
-    if (holiday)     labels += `<div class="cal-label holiday">${esc(holiday)}</div>`;
-    else if (event)  labels += `<div class="cal-label event">${esc(event)}</div>`;
+    if (day >= 1  && day <= 7)  labels += `<span class="cal-label">撮影</span>`;
+    if (day >= 8  && day <= 14) labels += `<span class="cal-label">編集</span>`;
+    // 更新日: Mon/Tue/Fri/Sat/Sun + holiday eves + holidays (補助更新 merged in)
+    if (dow === 0 || dow === 1 || dow === 2 || dow === 5 || dow === 6 || isEve || holiday)
+      labels += `<span class="cal-label">更新日</span>`;
+    if (ds === dl15) labels += `<span class="cal-label cal-deadline">【15日〆切】</span>`;
+    if (ds === dl20) labels += `<span class="cal-label cal-deadline">【20日〆切】</span>`;
 
     // Tasks with postDate on this day
     const tasks = state.tasks.filter(t =>
@@ -668,7 +671,9 @@ function renderCalendarView() {
     }
 
     cellsHtml += `<div class="${cls}" onclick="navigateToPostDate('${ds}')">
-      <div class="cal-date-num">${day}</div>
+      <div class="cal-date-row">
+        <span class="cal-date-num">${day}</span>${inlineExtra}
+      </div>
       <div class="cal-labels">${labels}</div>
       ${postsHtml}
     </div>`;
@@ -690,11 +695,10 @@ function renderCalendarView() {
     <div class="cal-grid">${headerHtml}${cellsHtml}</div>
     <div class="cal-legend">
       <span class="cal-legend-title">凡例</span>
-      <span class="cal-label shooting">撮影</span>
-      <span class="cal-label editing">編集</span>
-      <span class="cal-label update">更新日</span>
-      <span class="cal-label supplement">補助更新</span>
-      <span class="cal-label deadline">〆切</span>
+      <span class="cal-label">撮影</span>
+      <span class="cal-label">編集</span>
+      <span class="cal-label">更新日</span>
+      <span class="cal-label cal-deadline">【〆切】</span>
     </div>`;
 }
 
