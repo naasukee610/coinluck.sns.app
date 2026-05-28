@@ -1846,6 +1846,14 @@ function init() {
 
 document.addEventListener('DOMContentLoaded', init);
 
+// Sync across tabs: StorageEvent fires in all OTHER tabs when this tab writes to localStorage
+window.addEventListener('storage', e => {
+  if (e.key === 'coinluck_v1') {
+    loadState();
+    refreshCurrentTab();
+  }
+});
+
 // Prevent pinch/double-tap zoom on iOS (viewport meta alone is ignored by Safari/Chrome on iOS)
 document.addEventListener('touchstart',  e => { if (e.touches.length > 1) e.preventDefault(); }, { passive: false });
 document.addEventListener('touchmove',   e => { if (e.touches.length > 1) e.preventDefault(); }, { passive: false });
