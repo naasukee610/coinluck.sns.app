@@ -140,18 +140,20 @@ const DAY_NAMES = ['日', '月', '火', '水', '木', '金', '土'];
 // =============================================
 
 const state = {
-  tasks:            [],
-  links:            [],
-  reels:            [],
-  notes:            [],
-  announcements:    [],
-  activeTab:        'home',
-  statusFilter:     '撮影中',
-  videoSubTab:      'reels',
-  editingTaskId:    null,
-  editingLinkId:    null,
-  editingNoteId:    null,
-  editingAnnounceId: null,
+  tasks:                   [],
+  links:                   [],
+  reels:                   [],
+  notes:                   [],
+  announcements:           [],
+  meetingNotes:            [],
+  activeTab:               'home',
+  statusFilter:            '撮影中',
+  videoSubTab:             'reels',
+  editingTaskId:           null,
+  editingLinkId:           null,
+  editingNoteId:           null,
+  editingAnnounceId:       null,
+  editingMeetingWeekKey:   null,
 };
 
 // drag state shared between desktop and touch handlers
@@ -203,6 +205,7 @@ function loadState() {
         ? saved.notes.map(n => ({ category: 'メモ', ...n }))
         : initNotes();
       state.announcements = saved.announcements || [];
+      state.meetingNotes  = saved.meetingNotes  || [];
     } else {
       state.reels = initReels();
       state.notes = initNotes();
@@ -221,6 +224,7 @@ function saveState() {
       reels:         state.reels,
       notes:         state.notes,
       announcements: state.announcements,
+      meetingNotes:  state.meetingNotes,
     }));
   } catch (_) {}
 }
@@ -1831,14 +1835,64 @@ function setupPostsDrag() {
 // NOTES PAGE
 // =============================================
 
+function getMeetingWeekKey(date) {
+  const d = new Date(date);
+  d.setHours(0, 0, 0, 0);
+  const dow = d.getDay();
+  const diff = dow === 0 ? -6 : 1 - dow;
+  d.setDate(d.getDate() + diff);
+  return toDateStrLocal(d); // Monday YYYY-MM-DD as key
+}
+
+function getMeetingWeekLabel(weekKey) {
+  return getWeekLabel(new Date(weekKey + 'T00:00:00'));
+}
+
+function buildMeetingSection() {
+  const todayKey     = getMeetingWeekKey(new Date());
+  const thisWeekNote = state.meetingNotes.find(n => n.weekKey === todayKey);
+  const btnLabel     = thisWeekNote ? '今週を編集' : '今週を追加';
+
+  let html = `<div class="meeting-notes-section">
+    <div class="meeting-section-header">
+      <span class="meeting-section-title">📋 ミーティングノート</span>
+      <button class="header-btn header-btn--sm" onclick="openMeetingNote('${todayKey}')">${btnLabel}</button>
+    </div>`;
+
+  if (!state.meetingNotes.length) {
+    html += `<p class="meeting-notes-empty">ミーティングノートがまだありません</p>`;
+  } else {
+    const sorted = [...state.meetingNotes].sort((a, b) => b.weekKey.localeCompare(a.weekKey));
+    sorted.forEach(mn => {
+      const preview  = (mn.content || '').replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim().slice(0, 60);
+      const updated  = mn.updatedAt ? formatDateLabel(mn.updatedAt.slice(0, 10)) : '';
+      html += `<div class="meeting-note-card" onclick="openMeetingNote('${mn.weekKey}')">
+        <div class="meeting-note-card-row">
+          <span class="meeting-note-week">${getMeetingWeekLabel(mn.weekKey)}</span>
+          <span class="meeting-note-date">${updated}</span>
+        </div>
+        ${preview ? `<div class="meeting-note-preview">${esc(preview)}</div>` : ''}
+      </div>`;
+    });
+  }
+
+  html += `</div><div class="notes-section-divider"></div>`;
+  return html;
+}
+
 function renderNotes() {
   const el = document.getElementById('notes-content');
+
+  // Always show meeting section at top
+  let html = buildMeetingSection();
+
   if (!state.notes.length) {
-    el.innerHTML = `<div class="empty-state">
+    html += `<div class="empty-state">
       <span class="empty-icon">📓</span>
       <div class="empty-label">ノートがありません</div>
       <div class="empty-hint">右上の「＋追加」からノートを追加してください</div>
     </div>`;
+    el.innerHTML = html;
     return;
   }
 
@@ -1869,7 +1923,6 @@ function renderNotes() {
         title="削除">🗑️</button>
     </div>`;
 
-  let html = '';
   if (pinned.length) {
     html += `<div class="notes-section-label">📌 ピン留め</div>`;
     html += pinned.map(noteHTML).join('');
@@ -1884,6 +1937,78 @@ function renderNotes() {
 
   el.innerHTML = html;
   setupNoteDrag();
+}
+
+// =============================================
+// MEETING NOTES
+// =============================================
+
+let quillEditor = null;
+
+function initMeetingEditor() {
+  if (quillEditor) return;
+  quillEditor = new Quill('#meeting-quill-editor', {
+    theme: 'snow',
+    placeholder: 'ミーティングの内容を入力...',
+    modules: {
+      toolbar: [
+        [{ header: [1, 2, 3, false] }],
+        ['bold', 'italic', 'strike'],
+        [{ list: 'ordered' }, { list: 'bullet' }, { list: 'check' }],
+        ['link'],
+        ['clean'],
+      ],
+    },
+  });
+}
+
+function openMeetingNote(weekKey) {
+  initMeetingEditor();
+  state.editingMeetingWeekKey = weekKey;
+  const mn = state.meetingNotes.find(n => n.weekKey === weekKey);
+  document.getElementById('meeting-modal-title').textContent = getMeetingWeekLabel(weekKey);
+  if (mn) {
+    quillEditor.clipboard.dangerouslyPasteHTML(mn.content || '');
+    document.getElementById('delete-meeting-btn').classList.remove('is-hidden');
+  } else {
+    quillEditor.setContents([]);
+    document.getElementById('delete-meeting-btn').classList.add('is-hidden');
+  }
+  document.getElementById('meeting-modal').classList.remove('is-hidden');
+  setTimeout(() => quillEditor.focus(), 50);
+}
+
+function closeMeetingNoteModal() {
+  document.getElementById('meeting-modal').classList.add('is-hidden');
+  state.editingMeetingWeekKey = null;
+}
+
+function saveMeetingNote() {
+  if (!quillEditor) return;
+  const weekKey = state.editingMeetingWeekKey;
+  if (!weekKey) return;
+  const content = quillEditor.root.innerHTML;
+  const now     = new Date().toISOString();
+  const existing = state.meetingNotes.find(n => n.weekKey === weekKey);
+  if (existing) {
+    existing.content   = content;
+    existing.updatedAt = now;
+  } else {
+    state.meetingNotes.push({ id: uid(), weekKey, content, createdAt: now, updatedAt: now });
+  }
+  saveState();
+  closeMeetingNoteModal();
+  renderNotes();
+  showToast('ミーティングノートを保存しました');
+}
+
+function deleteMeetingNote() {
+  if (!confirm('このミーティングノートを削除しますか？')) return;
+  state.meetingNotes = state.meetingNotes.filter(n => n.weekKey !== state.editingMeetingWeekKey);
+  saveState();
+  closeMeetingNoteModal();
+  renderNotes();
+  showToast('ミーティングノートを削除しました');
 }
 
 function setupNoteDrag() {
@@ -2756,6 +2881,12 @@ function setupEvents() {
   document.getElementById('note-modal-backdrop').addEventListener('click', closeNoteModal);
   document.getElementById('note-form').addEventListener('submit', onSaveNote);
   document.getElementById('delete-note-btn').addEventListener('click', onDeleteNote);
+
+  // Meeting note modal
+  document.getElementById('close-meeting-modal').addEventListener('click', closeMeetingNoteModal);
+  document.getElementById('meeting-modal-backdrop').addEventListener('click', closeMeetingNoteModal);
+  document.getElementById('save-meeting-btn').addEventListener('click', saveMeetingNote);
+  document.getElementById('delete-meeting-btn').addEventListener('click', deleteMeetingNote);
 
   // Announce modal
   document.getElementById('close-announce-modal').addEventListener('click', closeAnnounceModal);
