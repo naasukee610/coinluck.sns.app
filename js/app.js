@@ -272,7 +272,7 @@ function showToast(msg, undoFn) {
     el.appendChild(btn);
   }
   el.classList.remove('is-hidden');
-  el._t = setTimeout(() => el.classList.add('is-hidden'), 2200);
+  el._t = setTimeout(() => el.classList.add('is-hidden'), 5000);
 }
 
 function copyText(text) {
@@ -362,19 +362,24 @@ function buildTodayTasksHTML() {
     else noPlat.push(task);
   });
 
+  const taskCard = t => `<div class="today-task-item">
+    <span class="today-task-title">${esc(t.title)}</span>
+    <button class="advance-btn today-advance-btn" onclick="advanceTaskStatus('${t.id}');event.stopPropagation()">→ 広告</button>
+  </div>`;
+
   let html = '';
   PLATFORMS.forEach(platform => {
     const tasks = byPlatform.get(platform.id) || [];
     if (!tasks.length) return;
     html += `<div class="today-platform-group">
       <div class="today-platform-label">${platform.name}</div>
-      ${tasks.map(t => `<div class="today-task-item">${esc(t.title)}</div>`).join('')}
+      ${tasks.map(taskCard).join('')}
     </div>`;
   });
   if (noPlat.length) {
     html += `<div class="today-platform-group">
       <div class="today-platform-label">未設定</div>
-      ${noPlat.map(t => `<div class="today-task-item">${esc(t.title)}</div>`).join('')}
+      ${noPlat.map(taskCard).join('')}
     </div>`;
   }
   return html;
@@ -876,7 +881,7 @@ function formatDateLabel(dateStr) {
 }
 
 function postTaskCardHtml(task, platformId, dateStr) {
-  const advLabel = task.status === '投稿' ? '→ 広告' : '→ 完了';
+  const advLabel = '→ 広告';
   return `<div class="post-task-card" data-task-id="${task.id}" data-from-platform="${platformId}" data-from-date="${dateStr}" draggable="true">
     <div class="post-drag-handle">⠿</div>
     <div class="post-card-title" onclick="openEditTask('${task.id}')">${esc(task.title)}</div>
@@ -886,7 +891,7 @@ function postTaskCardHtml(task, platformId, dateStr) {
 
 function renderPosts() {
   const el = document.getElementById('posts-content');
-  const activeTasks = state.tasks.filter(t => t.status === '投稿' || t.status === '広告');
+  const activeTasks = state.tasks.filter(t => t.status === '投稿');
 
   if (!activeTasks.length) {
     el.innerHTML = `<div class="empty-state">

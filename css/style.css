@@ -331,14 +331,19 @@ body {
   padding: 0 2px 4px;
 }
 .today-task-item {
-  font-size: 0.83rem; font-weight: 700;
+  display: flex; align-items: center; gap: 8px;
   padding: 6px 8px;
   background: var(--bg);
   border-radius: var(--r-sm);
   margin-bottom: 4px;
-  word-break: break-word;
 }
 .today-task-item:last-child { margin-bottom: 0; }
+.today-task-title {
+  flex: 1; min-width: 0;
+  font-size: 0.83rem; font-weight: 700;
+  word-break: break-word;
+}
+.today-advance-btn { flex-shrink: 0; }
 .schedule-item {
   display: flex; align-items: center; gap: 12px;
   padding: 9px 0;
