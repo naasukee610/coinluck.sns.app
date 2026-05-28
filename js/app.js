@@ -37,6 +37,81 @@ const PLATFORMS = [
   { id: 'youtube_en',   name: '英YouTube' },
 ];
 
+// 日本の祝日 2024–2026
+const JP_HOLIDAYS = {
+  '2024-01-01': '元日',
+  '2024-01-08': '成人の日',
+  '2024-02-11': '建国記念の日',
+  '2024-02-12': '建国記念日 振替',
+  '2024-02-23': '天皇誕生日',
+  '2024-03-20': '春分の日',
+  '2024-04-29': '昭和の日',
+  '2024-05-03': '憲法記念日',
+  '2024-05-04': 'みどりの日',
+  '2024-05-05': 'こどもの日',
+  '2024-05-06': 'こどもの日 振替',
+  '2024-07-15': '海の日',
+  '2024-08-11': '山の日',
+  '2024-08-12': '山の日 振替',
+  '2024-09-16': '敬老の日',
+  '2024-09-22': '秋分の日',
+  '2024-09-23': '秋分の日 振替',
+  '2024-10-14': 'スポーツの日',
+  '2024-11-03': '文化の日',
+  '2024-11-04': '文化の日 振替',
+  '2024-11-23': '勤労感謝の日',
+  '2025-01-01': '元日',
+  '2025-01-13': '成人の日',
+  '2025-02-11': '建国記念の日',
+  '2025-02-23': '天皇誕生日',
+  '2025-02-24': '天皇誕生日 振替',
+  '2025-03-20': '春分の日',
+  '2025-04-29': '昭和の日',
+  '2025-05-03': '憲法記念日',
+  '2025-05-04': 'みどりの日',
+  '2025-05-05': 'こどもの日',
+  '2025-05-06': 'みどりの日 振替',
+  '2025-07-21': '海の日',
+  '2025-08-11': '山の日',
+  '2025-09-15': '敬老の日',
+  '2025-09-23': '秋分の日',
+  '2025-10-13': 'スポーツの日',
+  '2025-11-03': '文化の日',
+  '2025-11-23': '勤労感謝の日',
+  '2025-11-24': '勤労感謝の日 振替',
+  '2026-01-01': '元日',
+  '2026-01-12': '成人の日',
+  '2026-02-11': '建国記念の日',
+  '2026-02-23': '天皇誕生日',
+  '2026-03-20': '春分の日',
+  '2026-04-29': '昭和の日',
+  '2026-05-03': '憲法記念日',
+  '2026-05-04': 'みどりの日',
+  '2026-05-05': 'こどもの日',
+  '2026-05-06': '憲法記念日 振替',
+  '2026-07-20': '海の日',
+  '2026-08-11': '山の日',
+  '2026-09-21': '敬老の日',
+  '2026-09-23': '秋分の日',
+  '2026-10-12': 'スポーツの日',
+  '2026-11-03': '文化の日',
+  '2026-11-23': '勤労感謝の日',
+};
+
+// 年間行事（祝日ではない記念日・イベント）
+const ANNUAL_EVENTS = {
+  '01-07': '七草',
+  '02-03': '節分',
+  '02-14': 'バレンタイン',
+  '03-14': 'ホワイトデー',
+  '04-01': 'エイプリルフール',
+  '07-07': '七夕',
+  '10-31': 'ハロウィン',
+  '12-24': 'クリスマスイブ',
+  '12-25': 'クリスマス',
+  '12-31': '大晦日',
+};
+
 const TEAM = [
   { id: 'tomochin', name: 'ともちん', role: 'リーダー', emoji: '👑' },
   { id: 'yukkie',   name: 'ゆっきー',  role: 'PM',       emoji: '📊' },
@@ -1554,7 +1629,24 @@ function getWeekLabel(monday) {
 
 function formatDateLabel(dateStr) {
   const d = new Date(dateStr + 'T00:00:00');
-  return `${d.getMonth()+1}/${d.getDate()}（${DAY_NAMES[d.getDay()]}）`;
+  const dow = d.getDay();
+  const base = `${d.getMonth()+1}/${d.getDate()}（${DAY_NAMES[dow]}）`;
+  const holiday = JP_HOLIDAYS[dateStr];
+  const mmdd = dateStr.slice(5);
+  const event = ANNUAL_EVENTS[mmdd];
+  const isRed = dow === 0 || !!holiday;
+  const isSat = dow === 6;
+  let html = '';
+  if (isRed) {
+    html += `<span class="date-holiday">${base}</span>`;
+    if (holiday) html += `<span class="date-holiday-name">${esc(holiday)}</span>`;
+  } else if (isSat) {
+    html += `<span class="date-saturday">${base}</span>`;
+  } else {
+    html += base;
+  }
+  if (event && !holiday) html += `<span class="date-event-name">${esc(event)}</span>`;
+  return html;
 }
 
 function postTaskCardHtml(task, platformId, dateStr) {
@@ -1602,14 +1694,19 @@ function renderPosts() {
     }
   });
 
-  // Auto-fill all 7 days (Mon–Sun) for every week that has at least one task
+  // Auto-fill Mon/Tue/Fri/Sat/Sun; Wed/Thu only when holiday or already has tasks
+  const DEFAULT_DAYS = new Set([0, 1, 2, 5, 6]); // Sun=0 Mon=1 Tue=2 Fri=5 Sat=6
   weekMap.forEach(wkData => {
     const monday = wkData.weekStart;
     for (let i = 0; i < 7; i++) {
       const d = new Date(monday);
       d.setDate(monday.getDate() + i);
       const dateStr = toDateStrLocal(d);
-      if (!wkData.dates.has(dateStr)) wkData.dates.set(dateStr, new Map());
+      if (!wkData.dates.has(dateStr)) {
+        if (DEFAULT_DAYS.has(d.getDay()) || JP_HOLIDAYS[dateStr]) {
+          wkData.dates.set(dateStr, new Map());
+        }
+      }
     }
   });
 
@@ -2787,11 +2884,48 @@ function setupEvents() {
 // INIT
 // =============================================
 
+function initDatePicker() {
+  if (typeof flatpickr === 'undefined') return;
+  flatpickr('#task-post-date', {
+    dateFormat: 'Y-m-d',
+    locale: {
+      firstDayOfWeek: 1,
+      weekdays: {
+        shorthand: ['日', '月', '火', '水', '木', '金', '土'],
+        longhand: ['日曜日', '月曜日', '火曜日', '水曜日', '木曜日', '金曜日', '土曜日'],
+      },
+      months: {
+        shorthand: ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'],
+        longhand: ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'],
+      },
+    },
+    onDayCreate(_, __, ___, dayElem) {
+      const dateStr = toDateStrLocal(dayElem.dateObj);
+      const dow = dayElem.dateObj.getDay();
+      const holiday = JP_HOLIDAYS[dateStr];
+      const mmdd = dateStr.slice(5);
+      const event = ANNUAL_EVENTS[mmdd];
+      if (dow === 0 || holiday) {
+        dayElem.classList.add('fp-holiday');
+      } else if (dow === 6) {
+        dayElem.classList.add('fp-saturday');
+      }
+      if (holiday || event) {
+        const dot = document.createElement('span');
+        dot.className = holiday ? 'fp-day-dot fp-holiday-dot' : 'fp-day-dot fp-event-dot';
+        dot.title = holiday || event;
+        dayElem.appendChild(dot);
+      }
+    },
+  });
+}
+
 function init() {
   loadState();
   saveState(); // persist initial reels so IDs are stable across reloads
   initTaskFormElements();
   setupEvents();
+  initDatePicker();
   const validTabs = ['home', 'status', 'posts', 'videos', 'notes', 'links'];
   const lastTab   = localStorage.getItem('coinluck_tab') || 'home';
   navigate(validTabs.includes(lastTab) ? lastTab : 'home');

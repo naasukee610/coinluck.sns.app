@@ -154,7 +154,7 @@ body {
   padding: 16px;
   display: flex; flex-direction: column;
   gap: 12px;
-  padding-bottom: 160px;
+  padding-bottom: 250px;
   overflow-y: auto;
 }
 
@@ -269,8 +269,8 @@ body {
   transition: all 0.12s;
 }
 .filter-chip.is-active {
-  background: var(--primary);
-  border-color: var(--primary);
+  background: var(--text);
+  border-color: var(--text);
   color: #fff;
 }
 .chip-count {
@@ -278,7 +278,7 @@ body {
   padding: 1px 5px; border-radius: 10px;
   font-size: 0.66rem;
 }
-.filter-chip.is-active .chip-count { background: rgba(255,255,255,0.25); }
+.filter-chip.is-active .chip-count { background: rgba(255,255,255,0.2); }
 
 /* =============================================
    CARDS
@@ -875,6 +875,17 @@ body {
   font-size: 0.88rem; font-weight: 700; color: var(--text);
   padding: 0 2px 6px; margin-bottom: 6px;
   border-bottom: 1px solid var(--border);
+  display: flex; align-items: baseline; gap: 5px; flex-wrap: wrap;
+}
+.date-holiday { color: #B04040; }
+.date-saturday { color: #3A65B0; }
+.date-holiday-name {
+  font-size: 0.7rem; font-weight: 600;
+  color: #B04040;
+}
+.date-event-name {
+  font-size: 0.7rem; font-weight: 500;
+  color: var(--muted);
 }
 .post-platform-group {
   display: flex; flex-direction: column; gap: 5px;
@@ -997,6 +1008,36 @@ body {
   transition: background 0.12s;
 }
 .open-btn:active { background: var(--primary-lt); }
+
+/* =============================================
+   FLATPICKR CUSTOMIZATION
+   ============================================= */
+
+.flatpickr-calendar {
+  font-family: 'Zen Maru Gothic', 'Hiragino Sans', sans-serif;
+  border-radius: var(--r) !important;
+  box-shadow: 0 4px 20px rgba(42,36,32,0.15) !important;
+  border: 1px solid var(--border) !important;
+}
+.flatpickr-day.fp-holiday { color: #B04040 !important; font-weight: 700; }
+.flatpickr-day.fp-saturday { color: #3A65B0 !important; font-weight: 600; }
+.flatpickr-day.selected { background: var(--text) !important; border-color: var(--text) !important; }
+.flatpickr-day.today { border-color: var(--primary) !important; }
+.flatpickr-day { position: relative; }
+.fp-day-dot {
+  display: block;
+  width: 4px; height: 4px;
+  border-radius: 50%;
+  margin: 1px auto 0;
+  position: absolute;
+  bottom: 3px; left: 50%; transform: translateX(-50%);
+}
+.fp-holiday-dot { background: #B04040; }
+.fp-event-dot { background: var(--muted); }
+.flatpickr-months .flatpickr-month { color: var(--text) !important; }
+.flatpickr-weekday { color: var(--muted) !important; font-weight: 700; }
+.flatpickr-weekday:last-child { color: #B04040 !important; }
+.flatpickr-weekday:nth-last-child(2) { color: #3A65B0 !important; }
 
 /* =============================================
    BOTTOM NAV (mobile)
