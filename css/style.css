@@ -154,7 +154,7 @@ body {
   padding: 16px;
   display: flex; flex-direction: column;
   gap: 12px;
-  padding-bottom: 100px;
+  padding-bottom: 160px;
   overflow-y: auto;
 }
 
