@@ -552,7 +552,7 @@ function renderHome() {
       ${buildTodayTasksHTML()}
     </div>
     <div class="card" id="home-pipeline-card">
-      <div class="card-title">📊 タスク進捗（タップで絞り込み）</div>
+      <div class="card-title">📊 タスク進捗</div>
       <div class="pipeline-grid">${pipelineHTML}</div>
     </div>
     <div class="card" id="home-announce-card">
