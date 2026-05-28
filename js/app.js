@@ -557,7 +557,7 @@ function renderHome() {
     </div>
     <div class="card" id="home-announce-card">
       <div class="announce-header">
-        <div class="card-title" style="margin-bottom:0">✔︎ お知らせ</div>
+        <div class="card-title" style="margin-bottom:0">📢 お知らせ</div>
         <button class="announce-add-btn" onclick="openAddAnnouncement()">＋ 追加</button>
       </div>
       ${announceItems}
