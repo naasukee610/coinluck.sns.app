@@ -254,7 +254,7 @@ body {
 .filter-bar {
   padding: 10px 16px;
   overflow-x: auto;
-  display: flex; gap: 4px;
+  display: flex; gap: 6px;
   background: var(--card);
   border-bottom: 1px solid var(--border);
   scrollbar-width: none; -ms-overflow-style: none;
@@ -1507,7 +1507,7 @@ body {
   color: var(--primary); font-weight: 700;
 }
 
-.status-chip-row { display: flex; flex-wrap: wrap; gap: 4px; }
+.status-chip-row { display: flex; flex-wrap: wrap; gap: 6px; }
 .status-chip-option {
   padding: 5px 12px;
   border-radius: 20px;
