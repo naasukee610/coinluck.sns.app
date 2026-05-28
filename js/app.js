@@ -6,18 +6,16 @@
 // CONFIG
 // =============================================
 
-const STATUSES = ['撮影中', '編集', 'サムネ', '音源', 'チェック', 'その他', '投稿', '広告', '完了'];
+const STATUSES = ['撮影中', 'ゆっきー', 'せい', 'ともちん', '投稿', '広告', '完了'];
 
 const STATUS_STYLE = {
-  '撮影中': { bg: '#F2EFEC', text: '#7A7068', border: '#C8C0B8' },
-  '編集':   { bg: '#EBF0F8', text: '#3A5A8A', border: '#A8C0D8' },
-  'サムネ': { bg: '#F5EDDF', text: '#8A6030', border: '#D4B080' },
-  '音源':   { bg: '#E4F0EC', text: '#2A6B58', border: '#8ABFB0' },
-  'チェック':{ bg: '#F5E8EE', text: '#904060', border: '#D8A8BC' },
-  'その他': { bg: '#EDECEA', text: '#6A6460', border: '#C4C0BC' },
-  '投稿':   { bg: '#EAE6E2', text: '#6B6159', border: '#BCB4AC' },
-  '広告':   { bg: '#F2EFEC', text: '#7A7068', border: '#C8C0B8' },
-  '完了':   { bg: '#EAE6E2', text: '#6B6159', border: '#BCB4AC' },
+  '撮影中':  { bg: '#F2EFEC', text: '#7A7068', border: '#C8C0B8' },
+  'ゆっきー':{ bg: '#F5ECEE', text: '#8C5468', border: '#CCA8B4' },
+  'せい':    { bg: '#E2EDE6', text: '#2D6045', border: '#80AA8E' },
+  'ともちん':{ bg: '#F5EDD6', text: '#7A5E1C', border: '#C8A848' },
+  '投稿':    { bg: '#EAE6E2', text: '#6B6159', border: '#BCB4AC' },
+  '広告':    { bg: '#F2EFEC', text: '#7A7068', border: '#C8C0B8' },
+  '完了':    { bg: '#EAE6E2', text: '#6B6159', border: '#BCB4AC' },
 };
 
 const STORES = ['仙台', '岐阜', '札幌', '広島', '東京', '福岡'];
