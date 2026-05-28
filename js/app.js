@@ -787,12 +787,13 @@ function changeTaskStatus(id, newStatus) {
 // =============================================
 
 function reelCard(m, draggable = false) {
+  const isMonthly = m.type === 'monthly';
   return `
     <div class="card reel-month-card" data-reel-id="${m.id}"${draggable ? ' draggable="true"' : ''}>
-      <div class="reel-month-header">
+      ${isMonthly ? `<div class="reel-month-header">
         <span class="reel-month-name">${esc(m.productionMonth)}リール</span>
         ${m.postMonth ? `<span class="reel-post-hint">投稿: ${esc(m.postMonth)}</span>` : ''}
-      </div>
+      </div>` : ''}
       ${m.videos.map((v, i) => `
         <div class="reel-video-row" onclick="openEditVideoModal('${m.id}','${v.id}')" style="cursor:pointer">
           <span class="reel-num reel-num--${i + 1}">${m.type === 'monthly' ? (CIRCLED[i] || (i + 1)) : '●'}</span>
@@ -2011,15 +2012,10 @@ function onSaveReel(e) {
       showToast('リール② のタイトルを入力してください'); return;
     }
 
-    const videos = [{ id: uid(), title: title1, note: note1 }];
-    if (title2) videos.push({ id: uid(), title: title2, note: note2 });
-
-    state.reels.push({
-      id: uid(), year: new Date().getFullYear(), type,
-      productionMonth: prodMonth, postMonth, videos,
-    });
-
     if (type === 'monthly') {
+      const videos = [{ id: uid(), title: title1, note: note1 }];
+      if (title2) videos.push({ id: uid(), title: title2, note: note2 });
+      state.reels.push({ id: uid(), year: new Date().getFullYear(), type, productionMonth: prodMonth, postMonth, videos });
       if (genTasks) {
         videos.forEach((v, i) => {
           generateTasksForVideo(v.title, CIRCLED[i] || `${i + 1}`, prodMonth, postMonth);
@@ -2029,20 +2025,24 @@ function onSaveReel(e) {
         showToast('リールを追加しました');
       }
     } else if (type === 'ec') {
+      state.reels.push({ id: uid(), year: new Date().getFullYear(), type, productionMonth: prodMonth, postMonth,
+        videos: [{ id: uid(), title: `EC店${title1}`, note: note1 }] });
       state.tasks.unshift({
         id: uid(), title: `EC①${title1}`, store: 'EC店',
-        platforms: [], status: '撮影中',
-        notes: '',
+        platforms: [], status: '撮影中', notes: '',
         createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
       });
       showToast('ECリールを追加しました（EC店のタスク1件を生成）');
     } else if (type === 'personal') {
       const selectedStores = [...document.querySelectorAll('input[name="personal-store"]:checked')].map(cb => cb.value);
+      const reelVideos = selectedStores.length
+        ? selectedStores.map(s => ({ id: uid(), title: `${s}${title1}`, note: note1 }))
+        : [{ id: uid(), title: title1, note: note1 }];
+      state.reels.push({ id: uid(), year: new Date().getFullYear(), type, productionMonth: prodMonth, postMonth, videos: reelVideos });
       selectedStores.forEach(store => {
         state.tasks.unshift({
           id: uid(), title: `${store}①${title1}`, store,
-          platforms: [], status: '撮影中',
-          notes: '',
+          platforms: [], status: '撮影中', notes: '',
           createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
         });
       });
@@ -2050,17 +2050,22 @@ function onSaveReel(e) {
       showToast(count ? `個人リールを追加しました（${count}件のタスクを生成）` : '個人リールを追加しました');
     } else if (type === 'english') {
       const selectedStores = [...document.querySelectorAll('input[name="personal-store"]:checked')].map(cb => cb.value);
+      const reelVideos = selectedStores.length
+        ? selectedStores.map(s => ({ id: uid(), title: `${s}${title1}`, note: note1 }))
+        : [{ id: uid(), title: title1, note: note1 }];
+      state.reels.push({ id: uid(), year: new Date().getFullYear(), type, productionMonth: prodMonth, postMonth, videos: reelVideos });
       selectedStores.forEach(store => {
         state.tasks.unshift({
           id: uid(), title: `英語●${store}${title1}`, store,
-          platforms: [], status: 'ゆっきー',
-          notes: '',
+          platforms: [], status: 'ゆっきー', notes: '',
           createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
         });
       });
       const count = selectedStores.length;
       showToast(count ? `英語リールを追加しました（${count}件のタスクを生成）` : '英語リールを追加しました');
     } else {
+      const videos = [{ id: uid(), title: title1, note: note1 }];
+      state.reels.push({ id: uid(), year: new Date().getFullYear(), type, productionMonth: prodMonth, postMonth, videos });
       showToast('リールを追加しました');
     }
 
