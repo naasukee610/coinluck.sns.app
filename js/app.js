@@ -314,19 +314,46 @@ function loadState() {
   }
 }
 
+// Set to true while applying a Firebase snapshot to prevent write-back loops
+let _fbApplying = false;
+
+function buildStateSnapshot() {
+  return {
+    tasks:             state.tasks,
+    links:             state.links,
+    reels:             state.reels,
+    notes:             state.notes,
+    announcements:     state.announcements,
+    noteCategoryOrder: state.noteCategoryOrder,
+    linkCategoryOrder: state.linkCategoryOrder,
+    calSchedule:       state.calSchedule,
+  };
+}
+
 function saveState() {
-  try {
-    localStorage.setItem('coinluck_v1', JSON.stringify({
-      tasks:               state.tasks,
-      links:               state.links,
-      reels:               state.reels,
-      notes:               state.notes,
-      announcements:       state.announcements,
-      noteCategoryOrder:   state.noteCategoryOrder,
-      linkCategoryOrder:   state.linkCategoryOrder,
-      calSchedule:         state.calSchedule,
-    }));
-  } catch (_) {}
+  const data = buildStateSnapshot();
+  // Always write to localStorage (fast, offline fallback)
+  try { localStorage.setItem('coinluck_v1', JSON.stringify(data)); } catch (_) {}
+  // Write to Firebase only when not applying a remote snapshot
+  if (!_fbApplying && typeof FB_REF !== 'undefined') {
+    FB_REF.set(data).catch(() => {});
+  }
+}
+
+function applyRemoteState(data) {
+  if (!data) return;
+  state.tasks             = data.tasks             || [];
+  state.links             = data.links             || [];
+  state.announcements     = data.announcements     || [];
+  state.noteCategoryOrder = data.noteCategoryOrder || [];
+  state.linkCategoryOrder = data.linkCategoryOrder || [];
+  if (data.calSchedule) state.calSchedule = data.calSchedule;
+  if (data.reels && data.reels.length) {
+    state.reels = data.reels.map(r => ({ year: 2026, type: 'monthly', ...r }));
+  }
+  if (data.notes && data.notes.length) {
+    state.notes = data.notes.map(n => ({ category: 'メモ', ...n }));
+  }
 }
 
 // =============================================
@@ -3448,6 +3475,43 @@ function initDatePicker() {
   });
 }
 
+function initFirebaseSync() {
+  if (typeof FB_REF === 'undefined') return;
+
+  let firstLoad = true;
+
+  FB_REF.on('value', snapshot => {
+    const data = snapshot.val();
+
+    if (firstLoad) {
+      firstLoad = false;
+      if (data) {
+        // Firebase has data: apply it and cache locally
+        _fbApplying = true;
+        applyRemoteState(data);
+        _fbApplying = false;
+        try { localStorage.setItem('coinluck_v1', JSON.stringify(buildStateSnapshot())); } catch (_) {}
+        refreshCurrentTab();
+      } else {
+        // Firebase is empty: upload current localStorage data
+        FB_REF.set(buildStateSnapshot()).catch(() => {});
+      }
+      return;
+    }
+
+    // Ongoing remote changes from another device/tab
+    if (data) {
+      _fbApplying = true;
+      applyRemoteState(data);
+      _fbApplying = false;
+      try { localStorage.setItem('coinluck_v1', JSON.stringify(buildStateSnapshot())); } catch (_) {}
+      refreshCurrentTab();
+    }
+  }, () => {
+    // Firebase listener error (offline) – silently continue with localStorage
+  });
+}
+
 function init() {
   loadState();
   saveState(); // persist initial reels so IDs are stable across reloads
@@ -3457,6 +3521,8 @@ function init() {
   const validTabs = ['home', 'status', 'posts', 'videos', 'notes', 'links'];
   const lastTab   = localStorage.getItem('coinluck_tab') || 'home';
   navigate(validTabs.includes(lastTab) ? lastTab : 'home');
+  // Start Firebase sync after UI is ready
+  initFirebaseSync();
 }
 
 document.addEventListener('DOMContentLoaded', init);
