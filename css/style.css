@@ -425,9 +425,33 @@ body {
 }
 .rule-item:last-child { border-bottom: none; padding-bottom: 10px; }
 
-/* Desktop: 2-col home grid */
-#home-calendar-card { display: none; } /* hidden on mobile */
+/* Calendar visible on all sizes */
+#home-calendar-card { display: block; }
 
+/* Mobile: compact calendar layout */
+@media (max-width: 767px) {
+  #home-calendar-card {
+    padding-left: 8px;
+    padding-right: 8px;
+  }
+  .cal-grid { gap: 1px; }
+  .cal-day-header { font-size: 0.56rem; padding: 2px 1px 4px; }
+  .cal-cell {
+    height: 70px;
+    padding: 3px 3px 2px;
+  }
+  .cal-date-num { font-size: 0.72rem; }
+  .cal-cell.today .cal-date-num {
+    width: 17px; height: 17px; font-size: 0.63rem;
+  }
+  /* Holiday name hidden; day is already colored red/blue */
+  .cal-holiday-inline,
+  .cal-event-inline { display: none; }
+  .cal-label { font-size: 0.43rem; line-height: 1.2; }
+  .cal-post-chip { font-size: 0.42rem; padding: 0 2px; }
+}
+
+/* Desktop: 2-col home grid */
 @media (min-width: 768px) {
   #home-content {
     display: grid;
@@ -436,7 +460,7 @@ body {
     gap: 16px;
   }
   #home-announce-card  { grid-column: 1 / -1; }
-  #home-calendar-card  { grid-column: 1 / -1; display: block; }
+  #home-calendar-card  { grid-column: 1 / -1; }
 }
 
 /* =============================================
