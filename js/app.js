@@ -3262,7 +3262,7 @@ function onSaveReel(e) {
       state.reels.push({ id: uid(), year: new Date().getFullYear(), type, productionMonth: prodMonth, postMonth,
         videos: [ecVid] });
       state.tasks.unshift({
-        id: uid(), title: `EC①${title1}`, store: 'EC店',
+        id: uid(), title: `EC○${title1}`, store: 'EC店',
         platforms: [], status: '撮影中', notes: note1,
         videoId: ecVid.id,
         createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
@@ -3276,7 +3276,7 @@ function onSaveReel(e) {
       state.reels.push({ id: uid(), year: new Date().getFullYear(), type, productionMonth: prodMonth, postMonth, videos: reelVideos });
       selectedStores.forEach((store, i) => {
         state.tasks.unshift({
-          id: uid(), title: `${store}①${title1}`, store,
+          id: uid(), title: `${store}○${title1}`, store,
           platforms: [], status: '撮影中', notes: note1,
           videoId: reelVideos[i]?.id,
           createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
@@ -3336,13 +3336,13 @@ function onSaveReel(e) {
           linked = STORES.some(s => t.title === `${s}${circledNum}${prevTitle}`);
         } else if (group.type === 'ec') {
           const base = prevTitle.replace(/^EC店/, '');
-          linked = t.title === `EC①${base}`;
+          linked = t.title === `EC○${base}` || t.title === `EC①${base}`;
         } else if (group.type === 'english') {
           const base = prevTitle.replace(/^英語/, '');
           linked = STORES.some(s => t.title === `英語○${s}${base}`);
         } else if (group.type === 'personal') {
           const matchStore = STORES.find(s => prevTitle.startsWith(s));
-          if (matchStore) linked = t.title === `${matchStore}①${prevTitle.slice(matchStore.length)}`;
+          if (matchStore) linked = t.title === `${matchStore}○${prevTitle.slice(matchStore.length)}` || t.title === `${matchStore}①${prevTitle.slice(matchStore.length)}`;
         }
         if (linked) t.videoId = videoId; // persist link for future edits
       }
