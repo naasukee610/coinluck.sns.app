@@ -1231,8 +1231,10 @@ function setupStatusCategoryDrag() {
     });
 
     card.addEventListener('touchstart', e => {
+      e.preventDefault();
       const touch = e.touches[0];
-      longTimer = setTimeout(() => {
+      const startX = touch.clientX, startY = touch.clientY;
+      const activateDrag = () => {
         touchItem = card; dragTaskId = taskId; dragSrcCat = fromCat;
         card.classList.add('is-dragging');
         const rect = card.getBoundingClientRect();
@@ -1243,8 +1245,20 @@ function setupStatusCategoryDrag() {
         document.body.appendChild(touchClone);
         chips.forEach(c => c.classList.add('is-drop-target'));
         navigator.vibrate?.(30);
-      }, 500);
-    }, { passive: true });
+      };
+      longTimer = setTimeout(activateDrag, 150);
+      const onEarlyMove = (ev) => {
+        const t = ev.touches[0];
+        const dx = t.clientX - startX;
+        const dy = t.clientY - startY;
+        if (Math.sqrt(dx * dx + dy * dy) > 8) {
+          clearTimeout(longTimer);
+          activateDrag();
+          card.removeEventListener('touchmove', onEarlyMove);
+        }
+      };
+      card.addEventListener('touchmove', onEarlyMove, { passive: true });
+    }, { passive: false });
 
     card.addEventListener('touchmove', e => {
       if (!touchItem) { clearTimeout(longTimer); return; }
@@ -1513,12 +1527,14 @@ function setupTaskDrag() {
 
   cards.forEach(card => {
     card.addEventListener('touchstart', e => {
+      e.preventDefault();
       const touch = e.touches[0];
+      const startX = touch.clientX, startY = touch.clientY;
       const id    = card.dataset.taskId;
       const task  = state.tasks.find(t => t.id === id);
       if (!task) return;
 
-      longTimer = setTimeout(() => {
+      const activateDrag = () => {
         touchItem            = card;
         dragState.taskId     = id;
         dragState.fromStatus = task.status;
@@ -1534,8 +1550,20 @@ function setupTaskDrag() {
         document.body.appendChild(touchClone);
         chips.forEach(c => c.classList.add('is-drop-target'));
         navigator.vibrate?.(30);
-      }, 500);
-    }, { passive: true });
+      };
+      longTimer = setTimeout(activateDrag, 150);
+      const onEarlyMove = (ev) => {
+        const t = ev.touches[0];
+        const dx = t.clientX - startX;
+        const dy = t.clientY - startY;
+        if (Math.sqrt(dx * dx + dy * dy) > 8) {
+          clearTimeout(longTimer);
+          activateDrag();
+          card.removeEventListener('touchmove', onEarlyMove);
+        }
+      };
+      card.addEventListener('touchmove', onEarlyMove, { passive: true });
+    }, { passive: false });
 
     card.addEventListener('touchmove', e => {
       if (!touchItem) { clearTimeout(longTimer); return; }
@@ -1644,8 +1672,10 @@ function setupStatusPlatformDrag() {
 
     // Touch long-press
     card.addEventListener('touchstart', e => {
+      e.preventDefault();
       const touch = e.touches[0];
-      longTimer = setTimeout(() => {
+      const startX = touch.clientX, startY = touch.clientY;
+      const activateDrag = () => {
         touchItem = card; dragTaskId = taskId; dragSrcPlatform = fromPlat;
         card.classList.add('is-dragging');
         const rect = card.getBoundingClientRect();
@@ -1655,8 +1685,20 @@ function setupStatusPlatformDrag() {
         touchClone.style.cssText += `;width:${rect.width}px;top:${rect.top}px;left:${rect.left}px;`;
         document.body.appendChild(touchClone);
         navigator.vibrate?.(30);
-      }, 500);
-    }, { passive: true });
+      };
+      longTimer = setTimeout(activateDrag, 150);
+      const onEarlyMove = (ev) => {
+        const t = ev.touches[0];
+        const dx = t.clientX - startX;
+        const dy = t.clientY - startY;
+        if (Math.sqrt(dx * dx + dy * dy) > 8) {
+          clearTimeout(longTimer);
+          activateDrag();
+          card.removeEventListener('touchmove', onEarlyMove);
+        }
+      };
+      card.addEventListener('touchmove', onEarlyMove, { passive: true });
+    }, { passive: false });
 
     card.addEventListener('touchmove', e => {
       if (!touchItem) { clearTimeout(longTimer); return; }
@@ -1887,6 +1929,7 @@ function setupEnglishReelDrag() {
     });
 
     card.addEventListener('touchstart', e => {
+      e.preventDefault();
       const t = e.touches[0];
       longTimer = setTimeout(() => {
         touchDragItem = card;
@@ -1898,8 +1941,8 @@ function setupEnglishReelDrag() {
         touchClone.style.cssText += `;width:${rect.width}px;top:${rect.top}px;left:${rect.left}px;`;
         document.body.appendChild(touchClone);
         navigator.vibrate?.(30);
-      }, 500);
-    }, { passive: true });
+      }, 150);
+    }, { passive: false });
 
     card.addEventListener('touchmove', e => {
       if (!touchDragItem) { clearTimeout(longTimer); return; }
@@ -2209,6 +2252,7 @@ function setupPostsDrag() {
 
     // ---- Touch (long-press) ----
     card.addEventListener('touchstart', e => {
+      e.preventDefault();
       const t = e.touches[0];
       longTimer = setTimeout(() => {
         touchDragItem = card;
@@ -2220,8 +2264,8 @@ function setupPostsDrag() {
         touchClone.style.cssText += `;width:${rect.width}px;top:${rect.top}px;left:${rect.left}px;`;
         document.body.appendChild(touchClone);
         navigator.vibrate?.(30);
-      }, 500);
-    }, { passive: true });
+      }, 150);
+    }, { passive: false });
 
     card.addEventListener('touchmove', e => {
       if (!touchDragItem) { clearTimeout(longTimer); return; }
@@ -2382,6 +2426,7 @@ function setupNoteDrag() {
 
       // Touch drag (long press)
       item.addEventListener('touchstart', e => {
+        e.preventDefault();
         const t = e.touches[0];
         longTimer = setTimeout(() => {
           touchDragItem = item;
@@ -2393,8 +2438,8 @@ function setupNoteDrag() {
           touchClone.style.cssText += `;width:${rect.width}px;top:${rect.top}px;left:${rect.left}px;`;
           document.body.appendChild(touchClone);
           navigator.vibrate?.(30);
-        }, 500);
-      }, { passive: true });
+        }, 150);
+      }, { passive: false });
 
       item.addEventListener('touchmove', e => {
         if (!touchDragItem) { clearTimeout(longTimer); return; }
@@ -2497,6 +2542,7 @@ function setupNoteCategoryDrag() {
 
     // Touch: long press on handle
     handle.addEventListener('touchstart', e => {
+      e.preventDefault();
       const t = e.touches[0];
       longTimer = setTimeout(() => {
         touchDragBlock = block;
@@ -2507,8 +2553,8 @@ function setupNoteCategoryDrag() {
         touchClone.style.cssText = `position:fixed;z-index:500;opacity:0.9;pointer-events:none;width:${rect.width}px;top:${rect.top}px;left:${rect.left}px;box-shadow:0 6px 20px rgba(42,36,32,0.18);border-radius:8px;background:var(--card);`;
         document.body.appendChild(touchClone);
         navigator.vibrate?.(30);
-      }, 500);
-    }, { passive: true });
+      }, 150);
+    }, { passive: false });
 
     handle.addEventListener('touchmove', e => {
       if (!touchDragBlock) { clearTimeout(longTimer); return; }
@@ -2747,6 +2793,7 @@ function setupLinkCategoryDrag() {
 
     // Touch: long press on handle
     handle.addEventListener('touchstart', e => {
+      e.preventDefault();
       const t = e.touches[0];
       longTimer = setTimeout(() => {
         touchDragGroup = group;
@@ -2757,8 +2804,8 @@ function setupLinkCategoryDrag() {
         touchClone.style.cssText = `position:fixed;z-index:500;opacity:0.9;pointer-events:none;width:${rect.width}px;top:${rect.top}px;left:${rect.left}px;box-shadow:0 6px 20px rgba(42,36,32,0.18);border-radius:8px;background:var(--card);`;
         document.body.appendChild(touchClone);
         navigator.vibrate?.(30);
-      }, 500);
-    }, { passive: true });
+      }, 150);
+    }, { passive: false });
 
     handle.addEventListener('touchmove', e => {
       if (!touchDragGroup) { clearTimeout(longTimer); return; }
@@ -2847,6 +2894,7 @@ function setupLinksDrag() {
 
       // Touch drag (long press)
       item.addEventListener('touchstart', e => {
+        e.preventDefault();
         const t = e.touches[0];
         longTimer = setTimeout(() => {
           touchDragItem = item;
@@ -2858,8 +2906,8 @@ function setupLinksDrag() {
           touchClone.style.cssText += `;width:${rect.width}px;top:${rect.top}px;left:${rect.left}px;`;
           document.body.appendChild(touchClone);
           navigator.vibrate?.(30);
-        }, 500);
-      }, { passive: true });
+        }, 150);
+      }, { passive: false });
 
       item.addEventListener('touchmove', e => {
         if (!touchDragItem) { clearTimeout(longTimer); return; }
