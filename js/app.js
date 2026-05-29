@@ -3361,6 +3361,39 @@ function onSaveReel(e) {
   renderVideos();
 }
 
+// Removes tasks linked to a video and returns them (for undo).
+// Matches by videoId first, then falls back to title-pattern for legacy tasks.
+function removeLinkedTasks(videoId, video, group) {
+  const videoIdx   = group.videos.indexOf(video);
+  const circledNum = CIRCLED[videoIdx] || `${videoIdx + 1}`;
+  const vTitle     = video.title;
+  const removed    = [];
+
+  state.tasks = state.tasks.filter(t => {
+    let linked = t.videoId === videoId;
+
+    if (!linked && !t.videoId) {
+      if (group.type === 'monthly') {
+        linked = STORES.some(s => t.title === `${s}${circledNum}${vTitle}`);
+      } else if (group.type === 'ec') {
+        const base = vTitle.replace(/^EC店/, '');
+        linked = t.title === `EC○${base}` || t.title === `EC①${base}`;
+      } else if (group.type === 'english') {
+        const base = vTitle.replace(/^英語/, '');
+        linked = STORES.some(s => t.title === `英語○${s}${base}`);
+      } else if (group.type === 'personal') {
+        const ms = STORES.find(s => vTitle.startsWith(s));
+        if (ms) linked = t.title === `${ms}○${vTitle.slice(ms.length)}` || t.title === `${ms}①${vTitle.slice(ms.length)}`;
+      }
+    }
+
+    if (linked) { removed.push(t); return false; }
+    return true;
+  });
+
+  return removed;
+}
+
 function onDeleteReel() {
   const groupId = document.getElementById('reel-group-id').value;
   const videoId = document.getElementById('reel-video-id').value;
@@ -3371,6 +3404,7 @@ function onDeleteReel() {
   const savedTitle    = video.title;
   const savedGroup    = { ...group, videos: [...group.videos] };
   const savedGroupIdx = state.reels.indexOf(group);
+  const removedTasks  = removeLinkedTasks(videoId, video, group);
 
   group.videos = group.videos.filter(v => v.id !== videoId);
   if (!group.videos.length) state.reels = state.reels.filter(m => m.id !== groupId);
@@ -3382,6 +3416,7 @@ function onDeleteReel() {
     const existing = state.reels.find(m => m.id === groupId);
     if (existing) { existing.videos = savedGroup.videos; }
     else { state.reels.splice(savedGroupIdx, 0, savedGroup); }
+    state.tasks.push(...removedTasks);
     saveState();
     renderVideos();
   });
@@ -3394,6 +3429,7 @@ function deleteVideoItem(groupId, videoId) {
   const savedTitle    = video.title;
   const savedGroup    = { ...group, videos: [...group.videos] };
   const savedGroupIdx = state.reels.indexOf(group);
+  const removedTasks  = removeLinkedTasks(videoId, video, group);
 
   group.videos = group.videos.filter(v => v.id !== videoId);
   if (!group.videos.length) state.reels = state.reels.filter(m => m.id !== groupId);
@@ -3404,6 +3440,7 @@ function deleteVideoItem(groupId, videoId) {
     const existing = state.reels.find(m => m.id === groupId);
     if (existing) { existing.videos = savedGroup.videos; }
     else { state.reels.splice(savedGroupIdx, 0, savedGroup); }
+    state.tasks.push(...removedTasks);
     saveState();
     renderVideos();
   });
