@@ -448,6 +448,8 @@ body {
   .cal-event-inline   { display: none; }
   .cal-label { font-size: 0.43rem; line-height: 1.2; }
   .cal-post-chip { font-size: 0.42rem; padding: 0 2px; }
+  .cal-toolbar { flex-direction: column; align-items: flex-start; gap: 4px; }
+  .cal-nav-row  { justify-content: flex-start; }
 }
 
 /* Desktop: 2-col home grid */
@@ -467,7 +469,7 @@ body {
    ============================================= */
 
 .cal-toolbar {
-  display: flex; flex-direction: column; gap: 6px;
+  display: flex; flex-direction: row; align-items: center; gap: 12px;
   margin-bottom: 12px;
 }
 .cal-nav-row   { display: flex; align-items: center; justify-content: center; gap: 8px; }
@@ -526,10 +528,10 @@ body {
   border-radius: 50%;
   font-size: 0.76rem;
 }
+.cal-cell.past .cal-date-num { color: #BBBBBB; }
 .cal-cell.is-sat   .cal-date-num { color: #3A65B0; }
 .cal-cell.is-sun   .cal-date-num,
 .cal-cell.is-holiday .cal-date-num { color: #B04040; }
-.cal-cell.past .cal-date-num { color: #BBBBBB; }
 .cal-cell.today .cal-date-num { color: #fff !important; }
 
 .cal-holiday-inline {
@@ -574,6 +576,21 @@ body {
   white-space: nowrap;
 }
 .cal-edit-btn:hover { background: var(--card-soft); color: var(--text); }
+
+.cal-edit-footer { padding: 8px 4px 2px; }
+.cal-edit-footer-btn {
+  font-size: 0.75rem;
+  color: var(--text-muted, #999);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px 4px;
+  font-family: inherit;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.cal-edit-footer-btn:hover { color: var(--text); }
 
 .cal-legend {
   display: flex; gap: 10px; flex-wrap: wrap; align-items: center;

@@ -858,17 +858,17 @@ function renderCalendarView() {
 
   el.innerHTML = `
     <div class="cal-toolbar">
+      <span class="card-title cal-title-text" style="margin-bottom:0;white-space:nowrap">📅 月間スケジュール</span>
       <div class="cal-nav-row">
-        <button class="cal-nav-btn" onclick="calPrevMonth()">‹ 前</button>
+        <button class="cal-nav-btn" onclick="calPrevMonth()">‹ 前月</button>
         <span class="cal-month-title">${year}年${MONTH_NAMES[month]}</span>
-        <button class="cal-nav-btn" onclick="calNextMonth()">翌 ›</button>
-      </div>
-      <div class="cal-title-row">
-        <span class="card-title" style="margin-bottom:0;white-space:nowrap">📅 月間スケジュール</span>
-        <button class="cal-edit-btn" onclick="openScheduleEdit()">⚙ 編集</button>
+        <button class="cal-nav-btn" onclick="calNextMonth()">翌月 ›</button>
       </div>
     </div>
-    <div class="cal-grid">${headerHtml}${cellsHtml}</div>`;
+    <div class="cal-grid">${headerHtml}${cellsHtml}</div>
+    <div class="cal-edit-footer">
+      <button class="cal-edit-footer-btn" onclick="openScheduleEdit()">⚙ 編集</button>
+    </div>`;
 }
 
 // =============================================
