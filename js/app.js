@@ -1016,7 +1016,11 @@ function renderStatusPlatformView(list, el) {
       : `<button class="advance-btn" onclick="advanceTaskTo('${task.id}','完了');event.stopPropagation()">→ 完了</button>`;
     return `<div class="sp-card" data-task-id="${task.id}" draggable="true" onclick="openEditTask('${task.id}')">
       <span class="sp-card-title">${esc(task.title)}</span>
-      <div class="sp-card-btns" onclick="event.stopPropagation()">${advBtns}</div>
+      <div class="sp-card-btns" onclick="event.stopPropagation()">
+        ${advBtns}
+        <button class="video-action-btn video-delete-btn"
+          onclick="quickDeleteTask('${task.id}');event.stopPropagation()" title="削除">🗑️</button>
+      </div>
     </div>`;
   }
 
@@ -1166,7 +1170,11 @@ function renderStatusCategoryView(list, el) {
     }
     return `<div class="sp-card" data-task-id="${task.id}" draggable="true" onclick="openEditTask('${task.id}')">
       <span class="sp-card-title">${esc(task.title)}</span>
-      <div class="sp-card-btns" onclick="event.stopPropagation()">${advBtns}</div>
+      <div class="sp-card-btns" onclick="event.stopPropagation()">
+        ${advBtns}
+        <button class="video-action-btn video-delete-btn"
+          onclick="quickDeleteTask('${task.id}');event.stopPropagation()" title="削除">🗑️</button>
+      </div>
     </div>`;
   }
 
