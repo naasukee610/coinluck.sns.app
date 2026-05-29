@@ -384,6 +384,22 @@ function uid() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 }
 
+let _autoScrollRaf = null;
+function startAutoScroll(clientY) {
+  const ZONE = 80, MAX_SPEED = 12;
+  const vh = window.innerHeight;
+  let speed = 0;
+  if (clientY < ZONE) speed = -MAX_SPEED * (1 - clientY / ZONE);
+  else if (clientY > vh - ZONE) speed = MAX_SPEED * (1 - (vh - clientY) / ZONE);
+  stopAutoScroll();
+  if (speed === 0) return;
+  const scroll = () => { window.scrollBy(0, speed); _autoScrollRaf = requestAnimationFrame(scroll); };
+  _autoScrollRaf = requestAnimationFrame(scroll);
+}
+function stopAutoScroll() {
+  if (_autoScrollRaf) { cancelAnimationFrame(_autoScrollRaf); _autoScrollRaf = null; }
+}
+
 // Returns category array in saved order, with any new categories appended
 function getOrderedCats(existingCats, savedOrder) {
   const result = (savedOrder || []).filter(c => existingCats.includes(c));
@@ -1268,6 +1284,7 @@ function setupStatusCategoryDrag() {
         touchClone.style.top  = (touch.clientY - offY) + 'px';
         touchClone.style.left = (touch.clientX - offX) + 'px';
       }
+      startAutoScroll(touch.clientY);
       clearOver();
       chips.forEach(c => c.classList.remove('drag-over'));
       const pt = document.elementFromPoint(touch.clientX, touch.clientY);
@@ -1280,6 +1297,7 @@ function setupStatusCategoryDrag() {
     }, { passive: false });
 
     card.addEventListener('touchend', e => {
+      stopAutoScroll();
       clearTimeout(longTimer);
       if (!touchItem) return;
       const touch = e.changedTouches[0];
@@ -1304,6 +1322,7 @@ function setupStatusCategoryDrag() {
     }, { passive: true });
 
     card.addEventListener('touchcancel', () => {
+      stopAutoScroll();
       clearTimeout(longTimer);
       touchClone?.remove(); touchClone = null;
       if (touchItem) { touchItem.classList.remove('is-dragging'); touchItem = null; }
@@ -1573,6 +1592,7 @@ function setupTaskDrag() {
         touchClone.style.top  = (touch.clientY - offY) + 'px';
         touchClone.style.left = (touch.clientX - offX) + 'px';
       }
+      startAutoScroll(touch.clientY);
       chips.forEach(c => c.classList.remove('drag-over'));
       cards.forEach(c => { if (c !== touchItem) c.classList.remove('drag-over'); });
 
@@ -1589,6 +1609,7 @@ function setupTaskDrag() {
     }, { passive: false });
 
     card.addEventListener('touchend', e => {
+      stopAutoScroll();
       clearTimeout(longTimer);
       if (!touchItem) return;
 
@@ -1615,6 +1636,7 @@ function setupTaskDrag() {
     }, { passive: true });
 
     card.addEventListener('touchcancel', () => {
+      stopAutoScroll();
       clearTimeout(longTimer);
       touchClone?.remove(); touchClone = null;
       if (touchItem) { touchItem.classList.remove('is-dragging'); touchItem = null; }
@@ -1708,6 +1730,7 @@ function setupStatusPlatformDrag() {
         touchClone.style.top  = (touch.clientY - offY) + 'px';
         touchClone.style.left = (touch.clientX - offX) + 'px';
       }
+      startAutoScroll(touch.clientY);
       clearOver();
       const tCard = document.elementFromPoint(touch.clientX, touch.clientY)?.closest('.sp-card[data-task-id]');
       if (tCard && tCard !== touchItem && tCard.closest('.sp-section')?.dataset.platform === dragSrcPlatform) {
@@ -1716,6 +1739,7 @@ function setupStatusPlatformDrag() {
     }, { passive: false });
 
     card.addEventListener('touchend', e => {
+      stopAutoScroll();
       clearTimeout(longTimer);
       if (!touchItem) return;
       const touch = e.changedTouches[0];
@@ -1730,6 +1754,7 @@ function setupStatusPlatformDrag() {
     }, { passive: true });
 
     card.addEventListener('touchcancel', () => {
+      stopAutoScroll();
       clearTimeout(longTimer);
       touchClone?.remove(); touchClone = null;
       if (touchItem) { touchItem.classList.remove('is-dragging'); touchItem = null; }
@@ -1949,6 +1974,7 @@ function setupEnglishReelDrag() {
       e.preventDefault();
       const t = e.touches[0];
       if (touchClone) { touchClone.style.top = (t.clientY - offY) + 'px'; touchClone.style.left = (t.clientX - offX) + 'px'; }
+      startAutoScroll(t.clientY);
       cards().forEach(c => c.classList.remove('drag-over'));
       for (const el of document.querySelectorAll('.reel-month-card[data-reel-id]:not(.is-dragging)')) {
         const r = el.getBoundingClientRect();
@@ -1957,6 +1983,7 @@ function setupEnglishReelDrag() {
     }, { passive: false });
 
     card.addEventListener('touchend', () => {
+      stopAutoScroll();
       clearTimeout(longTimer);
       if (!touchDragItem) return;
       touchClone?.remove(); touchClone = null;
@@ -1968,6 +1995,7 @@ function setupEnglishReelDrag() {
     }, { passive: true });
 
     card.addEventListener('touchcancel', () => {
+      stopAutoScroll();
       clearTimeout(longTimer);
       touchClone?.remove(); touchClone = null;
       if (touchDragItem) { touchDragItem.classList.remove('is-dragging'); touchDragItem = null; }
@@ -2272,6 +2300,7 @@ function setupPostsDrag() {
       e.preventDefault();
       const t = e.touches[0];
       if (touchClone) { touchClone.style.top = (t.clientY - offY) + 'px'; touchClone.style.left = (t.clientX - offX) + 'px'; }
+      startAutoScroll(t.clientY);
       clearDragOver();
       touchClone.style.display = 'none';
       const elUnder = document.elementFromPoint(t.clientX, t.clientY);
@@ -2283,6 +2312,7 @@ function setupPostsDrag() {
     }, { passive: false });
 
     card.addEventListener('touchend', e => {
+      stopAutoScroll();
       clearTimeout(longTimer);
       if (!touchDragItem) return;
       touchClone?.remove(); touchClone = null;
@@ -2298,6 +2328,7 @@ function setupPostsDrag() {
     }, { passive: true });
 
     card.addEventListener('touchcancel', () => {
+      stopAutoScroll();
       clearTimeout(longTimer);
       touchClone?.remove(); touchClone = null;
       if (touchDragItem) { touchDragItem.classList.remove('is-dragging'); touchDragItem = null; }
@@ -2446,6 +2477,7 @@ function setupNoteDrag() {
         e.preventDefault();
         const t = e.touches[0];
         if (touchClone) touchClone.style.top = (t.clientY - touchOffsetY) + 'px';
+        startAutoScroll(t.clientY);
         allItems().forEach(i => i.classList.remove('drag-over'));
         for (const el of list.querySelectorAll('.note-item:not(.is-dragging)')) {
           const r = el.getBoundingClientRect();
@@ -2454,6 +2486,7 @@ function setupNoteDrag() {
       }, { passive: false });
 
       item.addEventListener('touchend', () => {
+        stopAutoScroll();
         clearTimeout(longTimer);
         if (!touchDragItem) return;
         touchClone?.remove(); touchClone = null;
@@ -2464,6 +2497,7 @@ function setupNoteDrag() {
       }, { passive: true });
 
       item.addEventListener('touchcancel', () => {
+        stopAutoScroll();
         clearTimeout(longTimer);
         touchClone?.remove(); touchClone = null;
         if (touchDragItem) { touchDragItem.classList.remove('is-dragging'); touchDragItem = null; }
@@ -2561,6 +2595,7 @@ function setupNoteCategoryDrag() {
       e.preventDefault();
       const t = e.touches[0];
       if (touchClone) touchClone.style.top = (t.clientY - offY) + 'px';
+      startAutoScroll(t.clientY);
       allBlocks().forEach(b => b.classList.remove('drag-over-top', 'drag-over-bot'));
       for (const b of allBlocks()) {
         if (b === touchDragBlock) continue;
@@ -2573,6 +2608,7 @@ function setupNoteCategoryDrag() {
     }, { passive: false });
 
     handle.addEventListener('touchend', () => {
+      stopAutoScroll();
       clearTimeout(longTimer);
       if (!touchDragBlock) return;
       touchClone?.remove(); touchClone = null;
@@ -2589,6 +2625,7 @@ function setupNoteCategoryDrag() {
     }, { passive: true });
 
     handle.addEventListener('touchcancel', () => {
+      stopAutoScroll();
       clearTimeout(longTimer);
       touchClone?.remove(); touchClone = null;
       if (touchDragBlock) { touchDragBlock.classList.remove('is-dragging'); touchDragBlock = null; }
@@ -2812,6 +2849,7 @@ function setupLinkCategoryDrag() {
       e.preventDefault();
       const t = e.touches[0];
       if (touchClone) touchClone.style.top = (t.clientY - offY) + 'px';
+      startAutoScroll(t.clientY);
       allGroups().forEach(g => g.classList.remove('drag-over-top', 'drag-over-bot'));
       for (const g of allGroups()) {
         if (g === touchDragGroup) continue;
@@ -2824,6 +2862,7 @@ function setupLinkCategoryDrag() {
     }, { passive: false });
 
     handle.addEventListener('touchend', () => {
+      stopAutoScroll();
       clearTimeout(longTimer);
       if (!touchDragGroup) return;
       touchClone?.remove(); touchClone = null;
@@ -2840,6 +2879,7 @@ function setupLinkCategoryDrag() {
     }, { passive: true });
 
     handle.addEventListener('touchcancel', () => {
+      stopAutoScroll();
       clearTimeout(longTimer);
       touchClone?.remove(); touchClone = null;
       if (touchDragGroup) { touchDragGroup.classList.remove('is-dragging'); touchDragGroup = null; }
@@ -2914,6 +2954,7 @@ function setupLinksDrag() {
         e.preventDefault();
         const t = e.touches[0];
         if (touchClone) { touchClone.style.top = (t.clientY - offY) + 'px'; touchClone.style.left = (t.clientX - offX) + 'px'; }
+        startAutoScroll(t.clientY);
         items().forEach(i => i.classList.remove('drag-over'));
         for (const el of group.querySelectorAll('.link-item:not(.is-dragging)')) {
           const r = el.getBoundingClientRect();
@@ -2922,6 +2963,7 @@ function setupLinksDrag() {
       }, { passive: false });
 
       item.addEventListener('touchend', () => {
+        stopAutoScroll();
         clearTimeout(longTimer);
         if (!touchDragItem) return;
         touchClone?.remove(); touchClone = null;
@@ -2932,6 +2974,7 @@ function setupLinksDrag() {
       }, { passive: true });
 
       item.addEventListener('touchcancel', () => {
+        stopAutoScroll();
         clearTimeout(longTimer);
         touchClone?.remove(); touchClone = null;
         if (touchDragItem) { touchDragItem.classList.remove('is-dragging'); touchDragItem = null; }
