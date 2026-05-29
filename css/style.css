@@ -851,7 +851,6 @@ body {
   transition: transform 0.1s;
   user-select: none;
   -webkit-user-select: none;
-  -webkit-touch-callout: none;
 }
 .task-card:active { transform: scale(0.985); }
 
@@ -976,7 +975,6 @@ body {
   cursor: grab;
   user-select: none;
   -webkit-user-select: none;
-  -webkit-touch-callout: none;
 }
 .sp-card.is-dragging { opacity: 0.4; }
 .sp-card.drag-over   { border-top: 2px solid var(--primary); }
