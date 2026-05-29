@@ -248,6 +248,7 @@ const state = {
   calendarYear:            new Date().getFullYear(),
   calendarMonth:           new Date().getMonth(),
   calSchedule:             null,
+  _updatedAt:              0,   // unix ms — used for cross-device conflict resolution
 };
 
 // drag state shared between desktop and touch handlers
@@ -302,19 +303,22 @@ function loadState() {
       state.noteCategoryOrder  = saved.noteCategoryOrder  || [];
       state.linkCategoryOrder  = saved.linkCategoryOrder  || [];
       state.calSchedule        = saved.calSchedule        || JSON.parse(JSON.stringify(DEFAULT_CAL_SCHEDULE));
+      state._updatedAt         = saved.updatedAt          || 0;
     } else {
-      state.reels = initReels();
-      state.notes = initNotes();
+      state.reels      = initReels();
+      state.notes      = initNotes();
       state.calSchedule = JSON.parse(JSON.stringify(DEFAULT_CAL_SCHEDULE));
+      state._updatedAt  = 0;
     }
   } catch (_) {
-    state.reels = initReels();
-    state.notes = initNotes();
+    state.reels      = initReels();
+    state.notes      = initNotes();
     state.calSchedule = JSON.parse(JSON.stringify(DEFAULT_CAL_SCHEDULE));
+    state._updatedAt  = 0;
   }
 }
 
-// Set to true while applying a Firebase snapshot to prevent write-back loops
+// Prevents write-back loops when applying a Firebase snapshot
 let _fbApplying = false;
 
 function buildStateSnapshot() {
@@ -327,21 +331,36 @@ function buildStateSnapshot() {
     noteCategoryOrder: state.noteCategoryOrder,
     linkCategoryOrder: state.linkCategoryOrder,
     calSchedule:       state.calSchedule,
+    updatedAt:         state._updatedAt,
   };
 }
 
 function saveState() {
+  // Stamp the time of this user-initiated change
+  state._updatedAt = Date.now();
   const data = buildStateSnapshot();
-  // Always write to localStorage (fast, offline fallback)
+  // Cache locally for offline fallback
   try { localStorage.setItem('coinluck_v1', JSON.stringify(data)); } catch (_) {}
-  // Write to Firebase only when not applying a remote snapshot
+  // Firebase is the source of truth — write every user change
   if (!_fbApplying && typeof FB_REF !== 'undefined') {
     FB_REF.set(data).catch(() => {});
   }
 }
 
-function applyRemoteState(data) {
+// forceApply=true skips timestamp check (used on first Firebase connect)
+function applyRemoteState(data, forceApply = false) {
   if (!data) return;
+  const remoteTs = data.updatedAt || 0;
+  const localTs  = state._updatedAt || 0;
+
+  // If local state is strictly newer than remote, keep local and re-upload to fix Firebase
+  if (!forceApply && remoteTs > 0 && localTs > remoteTs) {
+    if (typeof FB_REF !== 'undefined') {
+      FB_REF.set(buildStateSnapshot()).catch(() => {});
+    }
+    return;
+  }
+
   state.tasks             = data.tasks             || [];
   state.links             = data.links             || [];
   state.announcements     = data.announcements     || [];
@@ -354,6 +373,7 @@ function applyRemoteState(data) {
   if (data.notes && data.notes.length) {
     state.notes = data.notes.map(n => ({ category: 'メモ', ...n }));
   }
+  state._updatedAt = remoteTs || localTs;
 }
 
 // =============================================
@@ -3485,43 +3505,51 @@ function initFirebaseSync() {
 
     if (firstLoad) {
       firstLoad = false;
+
       if (data) {
-        // Firebase has data: apply it and cache locally
+        // Firebase has data — it is the source of truth; always apply on first connect
         _fbApplying = true;
-        applyRemoteState(data);
+        applyRemoteState(data, true);
         _fbApplying = false;
         try { localStorage.setItem('coinluck_v1', JSON.stringify(buildStateSnapshot())); } catch (_) {}
         refreshCurrentTab();
       } else {
-        // Firebase is empty: upload current localStorage data
-        FB_REF.set(buildStateSnapshot()).catch(() => {});
+        // Firebase is empty — only seed it once per device (initial migration)
+        const alreadySeeded = localStorage.getItem('coinluck_fb_seeded') === '1';
+        const localRaw      = localStorage.getItem('coinluck_v1');
+        if (!alreadySeeded && localRaw) {
+          FB_REF.set(buildStateSnapshot()).then(() => {
+            try { localStorage.setItem('coinluck_fb_seeded', '1'); } catch (_) {}
+          }).catch(() => {});
+        }
+        // If already seeded but Firebase is empty (e.g. rules issue), do NOT overwrite
       }
       return;
     }
 
-    // Ongoing remote changes from another device/tab
+    // Ongoing remote changes from another device/tab — use timestamp to resolve conflicts
     if (data) {
       _fbApplying = true;
-      applyRemoteState(data);
+      applyRemoteState(data, false);
       _fbApplying = false;
       try { localStorage.setItem('coinluck_v1', JSON.stringify(buildStateSnapshot())); } catch (_) {}
       refreshCurrentTab();
     }
   }, () => {
-    // Firebase listener error (offline) – silently continue with localStorage
+    // Firebase offline — silently continue with localStorage cache
   });
 }
 
 function init() {
   loadState();
-  saveState(); // persist initial reels so IDs are stable across reloads
+  // Write to localStorage only — do NOT upload to Firebase before sync is established
+  try { localStorage.setItem('coinluck_v1', JSON.stringify(buildStateSnapshot())); } catch (_) {}
   initTaskFormElements();
   setupEvents();
   initDatePicker();
   const validTabs = ['home', 'status', 'posts', 'videos', 'notes', 'links'];
   const lastTab   = localStorage.getItem('coinluck_tab') || 'home';
   navigate(validTabs.includes(lastTab) ? lastTab : 'home');
-  // Start Firebase sync after UI is ready
   initFirebaseSync();
 }
 
