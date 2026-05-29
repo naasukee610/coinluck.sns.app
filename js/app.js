@@ -3209,7 +3209,7 @@ function closeReelModal() {
   document.getElementById('reel-modal').classList.add('is-hidden');
 }
 
-function generateTasksForVideo(videoTitle, circledNum, prodMonth, postMonth) {
+function generateTasksForVideo(videoId, videoTitle, circledNum, prodMonth, postMonth, initialNote = '') {
   STORES.forEach(store => {
     state.tasks.unshift({
       id:        uid(),
@@ -3217,7 +3217,8 @@ function generateTasksForVideo(videoTitle, circledNum, prodMonth, postMonth) {
       store:     store,
       platforms: [],
       status:    '撮影中',
-      notes:     '',
+      notes:     initialNote,
+      videoId:   videoId,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     });
@@ -3250,18 +3251,20 @@ function onSaveReel(e) {
       state.reels.push({ id: uid(), year: new Date().getFullYear(), type, productionMonth: prodMonth, postMonth, videos });
       if (genTasks) {
         videos.forEach((v, i) => {
-          generateTasksForVideo(v.title, CIRCLED[i] || `${i + 1}`, prodMonth, postMonth);
+          generateTasksForVideo(v.id, v.title, CIRCLED[i] || `${i + 1}`, prodMonth, postMonth, v.note);
         });
         showToast(`追加しました（${videos.length * STORES.length}件のタスクを生成）`);
       } else {
         showToast('リールを追加しました');
       }
     } else if (type === 'ec') {
+      const ecVid = { id: uid(), title: `EC店${title1}`, note: note1 };
       state.reels.push({ id: uid(), year: new Date().getFullYear(), type, productionMonth: prodMonth, postMonth,
-        videos: [{ id: uid(), title: `EC店${title1}`, note: note1 }] });
+        videos: [ecVid] });
       state.tasks.unshift({
         id: uid(), title: `EC①${title1}`, store: 'EC店',
-        platforms: [], status: '撮影中', notes: '',
+        platforms: [], status: '撮影中', notes: note1,
+        videoId: ecVid.id,
         createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
       });
       showToast('ECリールを追加しました（EC店のタスク1件を生成）');
@@ -3271,10 +3274,11 @@ function onSaveReel(e) {
         ? selectedStores.map(s => ({ id: uid(), title: `${s}${title1}`, note: note1 }))
         : [{ id: uid(), title: title1, note: note1 }];
       state.reels.push({ id: uid(), year: new Date().getFullYear(), type, productionMonth: prodMonth, postMonth, videos: reelVideos });
-      selectedStores.forEach(store => {
+      selectedStores.forEach((store, i) => {
         state.tasks.unshift({
           id: uid(), title: `${store}①${title1}`, store,
-          platforms: [], status: '撮影中', notes: '',
+          platforms: [], status: '撮影中', notes: note1,
+          videoId: reelVideos[i]?.id,
           createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
         });
       });
@@ -3286,10 +3290,11 @@ function onSaveReel(e) {
         ? selectedStores.map(s => ({ id: uid(), title: `${s}${title1}`, note: note1 }))
         : [{ id: uid(), title: title1, note: note1 }];
       state.reels.push({ id: uid(), year: new Date().getFullYear(), type, productionMonth: prodMonth, postMonth, videos: reelVideos });
-      selectedStores.forEach(store => {
+      selectedStores.forEach((store, i) => {
         state.tasks.unshift({
           id: uid(), title: `英語○${store}${title1}`, store,
-          platforms: [], status: 'ゆっきー', notes: '',
+          platforms: [], status: 'ゆっきー', notes: note1,
+          videoId: reelVideos[i]?.id,
           createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
         });
       });
@@ -3315,6 +3320,16 @@ function onSaveReel(e) {
 
     video.title = title;
     video.note  = note;
+
+    // Propagate note change to all tasks linked to this video
+    const now = new Date().toISOString();
+    state.tasks.forEach(t => {
+      if (t.videoId === videoId) {
+        t.notes     = note;
+        t.updatedAt = now;
+      }
+    });
+
     showToast('リールを更新しました');
   }
 
