@@ -3286,15 +3286,14 @@ function onSaveReel(e) {
       showToast(count ? `個人リールを追加しました（${count}件のタスクを生成）` : '個人リールを追加しました');
     } else if (type === 'english') {
       const selectedStores = [...document.querySelectorAll('input[name="personal-store"]:checked')].map(cb => cb.value);
-      const reelVideos = selectedStores.length
-        ? selectedStores.map(s => ({ id: uid(), title: `${s}${title1}`, note: note1 }))
-        : [{ id: uid(), title: title1, note: note1 }];
-      state.reels.push({ id: uid(), year: new Date().getFullYear(), type, productionMonth: prodMonth, postMonth, videos: reelVideos });
-      selectedStores.forEach((store, i) => {
+      // English reels use ONE video shared by all stores; title prefixed with 英語
+      const engVid = { id: uid(), title: `英語${title1}`, note: note1 };
+      state.reels.push({ id: uid(), year: new Date().getFullYear(), type, productionMonth: prodMonth, postMonth, videos: [engVid] });
+      selectedStores.forEach(store => {
         state.tasks.unshift({
           id: uid(), title: `英語○${store}${title1}`, store,
           platforms: [], status: 'ゆっきー', notes: note1,
-          videoId: reelVideos[i]?.id,
+          videoId: engVid.id,
           createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
         });
       });
@@ -3318,13 +3317,37 @@ function onSaveReel(e) {
     const video = group?.videos.find(v => v.id === videoId);
     if (!video) return;
 
+    const prevTitle  = video.title;
+    const videoIdx   = group.videos.indexOf(video);
+    const circledNum = CIRCLED[videoIdx] || `${videoIdx + 1}`;
+
     video.title = title;
     video.note  = note;
 
-    // Propagate note change to all tasks linked to this video
+    // Propagate note to linked tasks.
+    // Also retro-links tasks created before videoId was stored (title-pattern match).
     const now = new Date().toISOString();
     state.tasks.forEach(t => {
-      if (t.videoId === videoId) {
+      let linked = t.videoId === videoId;
+
+      if (!linked && !t.videoId) {
+        // Retro-link by title pattern so existing data works too
+        if (group.type === 'monthly') {
+          linked = STORES.some(s => t.title === `${s}${circledNum}${prevTitle}`);
+        } else if (group.type === 'ec') {
+          const base = prevTitle.replace(/^EC店/, '');
+          linked = t.title === `EC①${base}`;
+        } else if (group.type === 'english') {
+          const base = prevTitle.replace(/^英語/, '');
+          linked = STORES.some(s => t.title === `英語○${s}${base}`);
+        } else if (group.type === 'personal') {
+          const matchStore = STORES.find(s => prevTitle.startsWith(s));
+          if (matchStore) linked = t.title === `${matchStore}①${prevTitle.slice(matchStore.length)}`;
+        }
+        if (linked) t.videoId = videoId; // persist link for future edits
+      }
+
+      if (linked) {
         t.notes     = note;
         t.updatedAt = now;
       }
