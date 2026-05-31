@@ -405,8 +405,13 @@ function startAutoScroll(clientY, dragElement) {
   if (speed === 0) return;
   _autoScrollTarget = getScrollParent(dragElement) || window;
   const scroll = () => {
-    if (_autoScrollTarget === window) window.scrollBy(0, speed);
-    else _autoScrollTarget.scrollTop += speed;
+    if (_autoScrollTarget === window) {
+      window.scrollBy(0, speed);
+      document.documentElement.scrollTop += speed;
+      document.body.scrollTop += speed;
+    } else {
+      _autoScrollTarget.scrollTop += speed;
+    }
     _autoScrollRaf = requestAnimationFrame(scroll);
   };
   _autoScrollRaf = requestAnimationFrame(scroll);
@@ -3846,14 +3851,12 @@ window.addEventListener('storage', e => {
   }
 });
 
-// Desktop drag auto-scroll
-document.addEventListener('mousemove', e => {
-  if (document.querySelector('.is-dragging')) {
-    startAutoScroll(e.clientY, document.querySelector('.is-dragging'));
-  } else {
-    stopAutoScroll();
-  }
+// Desktop drag auto-scroll (HTML5 Drag API uses dragover, not mousemove)
+document.addEventListener('dragover', e => {
+  startAutoScroll(e.clientY, document.elementFromPoint(e.clientX, e.clientY));
 });
+document.addEventListener('dragend', () => { stopAutoScroll(); });
+document.addEventListener('drop',    () => { stopAutoScroll(); });
 
 // Prevent pinch/double-tap zoom on iOS (viewport meta alone is ignored by Safari/Chrome on iOS)
 document.addEventListener('touchstart',  e => { if (e.touches.length > 1) e.preventDefault(); }, { passive: false });
