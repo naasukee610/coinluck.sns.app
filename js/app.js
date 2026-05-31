@@ -1086,7 +1086,7 @@ function renderStatusCompleteView(list, el) {
   const undatedTasks = list.filter(t => !t.postDate);
 
   function doneCardHtml(task) {
-    return `<div class="done-task-card" onclick="openEditTask('${task.id}')">
+    return `<div class="done-task-card" data-task-id="${task.id}" draggable="true" onclick="openEditTask('${task.id}')">
       <span class="done-card-title">${esc(task.title)}</span>
     </div>`;
   }
@@ -1177,6 +1177,118 @@ function renderStatusCompleteView(list, el) {
   }
 
   el.innerHTML = html;
+  setupStatusCompleteDrag();
+}
+
+function setupStatusCompleteDrag() {
+  let dragTaskId = null;
+  let longTimer = null, touchItem = null, touchClone = null, offX = 0, offY = 0;
+  const chips = document.querySelectorAll('.filter-chip[data-status]');
+
+  document.querySelectorAll('.done-task-card[data-task-id]').forEach(card => {
+    const taskId = card.dataset.taskId;
+
+    card.addEventListener('dragstart', e => {
+      dragTaskId = taskId;
+      card.classList.add('is-dragging');
+      e.dataTransfer.effectAllowed = 'move';
+      chips.forEach(c => c.classList.add('is-drop-target'));
+    });
+    card.addEventListener('dragend', () => {
+      stopAutoScroll();
+      card.classList.remove('is-dragging');
+      chips.forEach(c => c.classList.remove('is-drop-target', 'drag-over'));
+      dragTaskId = null;
+    });
+
+    card.addEventListener('touchstart', e => {
+      const touch = e.touches[0];
+      const startX = touch.clientX, startY = touch.clientY;
+      let dragStarted = false;
+      const activateDrag = () => {
+        if (dragStarted) return;
+        dragStarted = true;
+        touchItem = card; dragTaskId = taskId;
+        card.classList.add('is-dragging');
+        const rect = card.getBoundingClientRect();
+        offX = touch.clientX - rect.left; offY = touch.clientY - rect.top;
+        touchClone = card.cloneNode(true);
+        touchClone.className += ' task-drag-clone';
+        touchClone.style.cssText += `;width:${rect.width}px;top:${rect.top}px;left:${rect.left}px;`;
+        document.body.appendChild(touchClone);
+        chips.forEach(c => c.classList.add('is-drop-target'));
+        navigator.vibrate?.(30);
+      };
+      longTimer = setTimeout(activateDrag, 200);
+      const onEarlyMove = (ev) => {
+        const t = ev.touches[0];
+        const dx = t.clientX - startX, dy = t.clientY - startY;
+        if (Math.sqrt(dx * dx + dy * dy) > 10) {
+          clearTimeout(longTimer); activateDrag();
+          card.removeEventListener('touchmove', onEarlyMove);
+        }
+      };
+      card.addEventListener('touchmove', onEarlyMove, { passive: true });
+    }, { passive: true });
+
+    card.addEventListener('touchmove', e => {
+      if (!touchItem) { clearTimeout(longTimer); return; }
+      e.preventDefault();
+      const touch = e.touches[0];
+      if (touchClone) {
+        touchClone.style.top  = (touch.clientY - offY) + 'px';
+        touchClone.style.left = (touch.clientX - offX) + 'px';
+      }
+      startAutoScroll(touch.clientY, touchItem || card);
+      chips.forEach(c => c.classList.remove('drag-over'));
+      const chip = document.elementFromPoint(touch.clientX, touch.clientY)?.closest('.filter-chip[data-status]');
+      if (chip && chip.dataset.status !== state.statusFilter) chip.classList.add('drag-over');
+    }, { passive: false });
+
+    card.addEventListener('touchend', e => {
+      stopAutoScroll();
+      clearTimeout(longTimer);
+      if (!touchItem) return;
+      const touch = e.changedTouches[0];
+      touchClone?.remove(); touchClone = null;
+      touchItem.classList.remove('is-dragging');
+      chips.forEach(c => c.classList.remove('is-drop-target', 'drag-over'));
+      const chip = document.elementFromPoint(touch.clientX, touch.clientY)?.closest('.filter-chip[data-status]');
+      if (chip) {
+        const s = chip.dataset.status;
+        if (s && s !== state.statusFilter) changeTaskStatus(dragTaskId, s);
+      }
+      touchItem = null; dragTaskId = null;
+    }, { passive: true });
+
+    card.addEventListener('touchcancel', () => {
+      stopAutoScroll();
+      clearTimeout(longTimer);
+      touchClone?.remove(); touchClone = null;
+      if (touchItem) { touchItem.classList.remove('is-dragging'); touchItem = null; }
+      chips.forEach(c => c.classList.remove('is-drop-target', 'drag-over'));
+      dragTaskId = null;
+    }, { passive: true });
+  });
+
+  chips.forEach(chip => {
+    chip.addEventListener('dragover', e => {
+      if (!dragTaskId) return;
+      const s = chip.dataset.status;
+      if (s && s !== state.statusFilter) {
+        e.preventDefault();
+        chips.forEach(c => c.classList.remove('drag-over'));
+        chip.classList.add('drag-over');
+      }
+    });
+    chip.addEventListener('dragleave', () => chip.classList.remove('drag-over'));
+    chip.addEventListener('drop', e => {
+      e.preventDefault();
+      const s = chip.dataset.status;
+      if (!dragTaskId || !s || s === state.statusFilter) return;
+      changeTaskStatus(dragTaskId, s);
+    });
+  });
 }
 
 function renderStatusCategoryView(list, el) {
@@ -1690,6 +1802,8 @@ function setupStatusPlatformDrag() {
   let dragTaskId = null, dragSrcPlatform = null;
   let longTimer = null, touchItem = null, touchClone = null, offX = 0, offY = 0;
 
+  const chips = document.querySelectorAll('.filter-chip[data-status]');
+
   function clearOver() {
     document.querySelectorAll('.sp-card.drag-over').forEach(el => el.classList.remove('drag-over'));
   }
@@ -1703,11 +1817,14 @@ function setupStatusPlatformDrag() {
       dragTaskId = taskId; dragSrcPlatform = fromPlat;
       card.classList.add('is-dragging');
       e.dataTransfer.effectAllowed = 'move';
+      chips.forEach(c => c.classList.add('is-drop-target'));
     });
     card.addEventListener('dragend', () => {
       stopAutoScroll();
       card.classList.remove('is-dragging');
-      clearOver(); dragTaskId = null;
+      clearOver();
+      chips.forEach(c => c.classList.remove('is-drop-target', 'drag-over'));
+      dragTaskId = null;
     });
     card.addEventListener('dragover', e => {
       if (!dragTaskId || taskId === dragTaskId) return;
@@ -1738,6 +1855,7 @@ function setupStatusPlatformDrag() {
         touchClone.className += ' task-drag-clone';
         touchClone.style.cssText += `;width:${rect.width}px;top:${rect.top}px;left:${rect.left}px;`;
         document.body.appendChild(touchClone);
+        chips.forEach(c => c.classList.add('is-drop-target'));
         navigator.vibrate?.(30);
       };
       longTimer = setTimeout(activateDrag, 200);
@@ -1763,11 +1881,13 @@ function setupStatusPlatformDrag() {
         touchClone.style.left = (touch.clientX - offX) + 'px';
       }
       startAutoScroll(touch.clientY, touchItem || card);
+      chips.forEach(c => c.classList.remove('drag-over'));
       clearOver();
-      const tCard = document.elementFromPoint(touch.clientX, touch.clientY)?.closest('.sp-card[data-task-id]');
-      if (tCard && tCard !== touchItem && tCard.closest('.sp-section')?.dataset.platform === dragSrcPlatform) {
-        tCard.classList.add('drag-over');
-      }
+      const pt = document.elementFromPoint(touch.clientX, touch.clientY);
+      const chip  = pt?.closest('.filter-chip[data-status]');
+      const tCard = pt?.closest('.sp-card[data-task-id]');
+      if (chip && chip.dataset.status !== state.statusFilter) chip.classList.add('drag-over');
+      else if (tCard && tCard !== touchItem && tCard.closest('.sp-section')?.dataset.platform === dragSrcPlatform) tCard.classList.add('drag-over');
     }, { passive: false });
 
     card.addEventListener('touchend', e => {
@@ -1777,9 +1897,15 @@ function setupStatusPlatformDrag() {
       const touch = e.changedTouches[0];
       touchClone?.remove(); touchClone = null;
       touchItem.classList.remove('is-dragging');
+      chips.forEach(c => c.classList.remove('is-drop-target', 'drag-over'));
       clearOver();
-      const tCard = document.elementFromPoint(touch.clientX, touch.clientY)?.closest('.sp-card[data-task-id]');
-      if (tCard && tCard !== touchItem && tCard.closest('.sp-section')?.dataset.platform === dragSrcPlatform) {
+      const pt    = document.elementFromPoint(touch.clientX, touch.clientY);
+      const chip  = pt?.closest('.filter-chip[data-status]');
+      const tCard = pt?.closest('.sp-card[data-task-id]');
+      if (chip) {
+        const s = chip.dataset.status;
+        if (s && s !== state.statusFilter) changeTaskStatus(dragTaskId, s);
+      } else if (tCard && tCard !== touchItem && tCard.closest('.sp-section')?.dataset.platform === dragSrcPlatform) {
         reorderTasks(dragTaskId, tCard.dataset.taskId);
       }
       touchItem = null; dragTaskId = null;
@@ -1790,8 +1916,28 @@ function setupStatusPlatformDrag() {
       clearTimeout(longTimer);
       touchClone?.remove(); touchClone = null;
       if (touchItem) { touchItem.classList.remove('is-dragging'); touchItem = null; }
+      chips.forEach(c => c.classList.remove('is-drop-target', 'drag-over'));
       clearOver(); dragTaskId = null;
     }, { passive: true });
+  });
+
+  chips.forEach(chip => {
+    chip.addEventListener('dragover', e => {
+      if (!dragTaskId) return;
+      const s = chip.dataset.status;
+      if (s && s !== state.statusFilter) {
+        e.preventDefault();
+        chips.forEach(c => c.classList.remove('drag-over'));
+        chip.classList.add('drag-over');
+      }
+    });
+    chip.addEventListener('dragleave', () => chip.classList.remove('drag-over'));
+    chip.addEventListener('drop', e => {
+      e.preventDefault();
+      const s = chip.dataset.status;
+      if (!dragTaskId || !s || s === state.statusFilter) return;
+      changeTaskStatus(dragTaskId, s);
+    });
   });
 }
 
