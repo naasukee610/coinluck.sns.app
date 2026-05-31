@@ -990,7 +990,7 @@ body {
   min-width: 0;
   font-size: 0.86rem;
   font-weight: 700;
-  word-break: break-word;
+  word-break: break-all;
   line-height: 1.35;
 }
 
@@ -1003,7 +1003,7 @@ body {
 @media (min-width: 768px) {
   #status-content[data-view="platform"] {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(3, minmax(280px, 1fr));
     align-items: start;
     gap: 16px;
   }
