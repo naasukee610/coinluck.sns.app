@@ -397,7 +397,7 @@ let _autoScrollTarget = null;
 
 function startAutoScroll(clientY, dragElement) {
   stopAutoScroll();
-  const ZONE = 100, MAX_SPEED = 15;
+  const ZONE = 120, MAX_SPEED = 35;
   const vh = window.innerHeight;
   let speed = 0;
   if (clientY < ZONE) speed = -MAX_SPEED * Math.pow(1 - clientY / ZONE, 1.5);
