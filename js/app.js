@@ -1426,9 +1426,11 @@ function advanceTaskTo(id, targetStatus, overrideCategory = null) {
       : ['tiktok_jp', 'instagram_jp', 'youtube_jp'];
     const originalIdx = state.tasks.indexOf(task);
     const now = new Date().toISOString();
+    const PLATFORM_SUFFIX = { tiktok_jp: 't', instagram_jp: 'i', youtube_jp: 'y', tiktok_en: 't', instagram_en: 'i', youtube_en: 'y' };
+    const baseTitle = task.title.replace(/[tiy]$/, '');
     const newTasks = pids.map(pid => ({
       id: uid(),
-      title: task.title,
+      title: baseTitle + (PLATFORM_SUFFIX[pid] || ''),
       store: task.store || '',
       platforms: [pid],
       status: '投稿',
